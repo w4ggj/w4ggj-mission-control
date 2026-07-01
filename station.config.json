@@ -12,8 +12,8 @@
   "digital": "FT8 · FT4",
   "tagline": "Always further. Always connected.",
   "subtitle": "HOME STATION · HF · FT8",
-  "_pskreporter_note": "Public-page PSKReporter map. Leave blank to auto-build (signals SENT by your callsign, last 12h). To pin an exact view, set up pskreporter.info how you like it, click Permalink, and paste that full URL here.",
-  "pskreporter_url": "",
+  "_pskreporter_note": "Public-page PSKReporter map. Leave blank to auto-build (signals SENT by your callsign, last 15 min). To pin an exact view (bands/modes/time + all Display Options), set up pskreporter.info how you like it, click Permalink, and paste that full URL here.",
+  "pskreporter_url": "https://pskreporter.info/pskmap#preset&callsign=w4ggj&txrx=tx&timerange=900&hideunrec=1&blankifnone=1&hidepink=1&showlines=1&hidetime=1&mapCenter=10.8006,-77.9283,2.54",
 
   "_section_web": "=== WEB SERVER (this dashboard PC) ===",
   "web_port": 8770,
