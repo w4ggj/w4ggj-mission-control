@@ -21,6 +21,7 @@ Standard library only.
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -67,16 +68,44 @@ def main():
     print(f"[agent] pushing telemetry to {url} every {PUSH_INTERVAL:.0f}s")
 
     fails = 0
+    last_beat = 0.0
+    ever_online = False
     while True:
         time.sleep(PUSH_INTERVAL)
+        tel = engine.home_telemetry()
+        radio_online = bool(tel.get("radio", {}).get("online"))
+        ever_online = ever_online or radio_online
         try:
-            status = push(url, token, engine.home_telemetry())
+            status = push(url, token, tel)
             if status == 200:
                 if fails:
                     print("[agent] link restored")
                 fails = 0
+                # periodic heartbeat so "pushing OK but no data" is visible
+                now = time.time()
+                if now - last_beat >= 30:
+                    last_beat = now
+                    r = tel.get("radio", {})
+                    print(f"[agent] push OK · radio={'ON' if radio_online else 'off'} "
+                          f"{r.get('freq_mhz', 0)}MHz {r.get('mode', '—')} · "
+                          f"decodes={len(tel.get('decodes', []))} · "
+                          f"log={tel.get('log', {}).get('total', 0)} QSOs")
+                    if not ever_online:
+                        port = engine.cfg("wsjtx_udp_port", 2242)
+                        print("[agent] NOTE: no WSJT-X data received yet — in WSJT-X "
+                              "Settings>Reporting enable 'Accept UDP requests' and set "
+                              f"UDP Server 127.0.0.1 port {port}.")
             else:
                 print(f"[agent] ingest returned HTTP {status}")
+        except urllib.error.HTTPError as e:
+            fails += 1
+            if e.code == 401:
+                print("[agent] push REJECTED (HTTP 401) — ingest_token in "
+                      "agent.config.json does not match INGEST_TOKEN on Render.")
+            elif fails <= 3 or fails % 30 == 0:
+                print(f"[agent] push failed (HTTP {e.code})")
+            if fails > 3:
+                time.sleep(min(20, fails))
         except Exception as e:
             fails += 1
             if fails <= 3 or fails % 30 == 0:

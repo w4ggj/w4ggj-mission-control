@@ -28,7 +28,7 @@
   "_wsjtx_multicast_note": "Only if WSJT-X uses a multicast address (e.g. 239.255.0.0). Leave blank for normal unicast to this PC's IP.",
 
   "_section_adif": "=== LOGBOOK (ADIF) — full history lives on the STATION PC ===",
-  "adif_autodetect": false,
+  "adif_autodetect": true,
   "adif_log_path": "",
   "_adif_note": "Cross-PC options: (A) share the station PC's WSJT-X folder and put its UNC path here, e.g. \\\\STATION-PC\\Users\\NAME\\AppData\\Local\\WSJT-X\\wsjtx_log.adi  -> FULL history. (B) leave blank with adif_autodetect=false -> the dashboard builds a LIVE log straight from WSJT-X UDP as you log each QSO (this session).",
   "extra_adif_paths": [],

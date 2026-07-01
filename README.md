@@ -147,6 +147,20 @@ keeps the free Render instance from sleeping. Leave it running (Task Scheduler c
 > `agent.config.json` holds your token and is **gitignored** — it never leaves your PC.
 > Local LAN viewing (`python server.py`) still works exactly as before, independently.
 
+### Agent running but the public site isn't updating?
+Work top-down — the agent console and the cloud health probe tell you which link is broken:
+
+1. **Is telemetry reaching Render?** Open `https://<your-app>.onrender.com/api/health`.
+   The `ingest` block reports `age_sec` (seconds since the last push) and `radio_online`.
+   - `age_sec: null` or large → the agent's pushes aren't arriving. Check the agent console:
+     `push REJECTED (HTTP 401)` means `ingest_token` ≠ Render's `INGEST_TOKEN`; other
+     `push failed` lines mean a network/URL problem.
+   - `age_sec` small but the panels look empty → data *is* flowing; the next check applies.
+2. **Is WSJT-X reaching the agent?** The agent prints a heartbeat every ~30 s. If it says
+   `radio=off` and warns `no WSJT-X data received yet`, WSJT-X isn't delivering UDP: in
+   **Settings > Reporting** enable *Accept UDP requests* and set **UDP Server `127.0.0.1`,
+   port `2242`** (the agent must run on the same PC as WSJT-X).
+
 ## Notes / roadmap
 - **Countries** is an *approximate* DXCC by callsign prefix (display only, not award-grade).
 - The S-meter is derived from FT8 **decode SNR**, not a calibrated reading.
