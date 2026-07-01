@@ -114,12 +114,17 @@ function render(s) {
     $('chip-dx-wrap').style.display = 'none';
   }
 
-  // live power from the rig (Hamlib) when available, else the static rating
+  // live power from the rig (Hamlib/HRD) when available, else the static rating
   const pwr = (r.power_w != null) ? r.power_w : id.power_watts;
   $('f-pwr').textContent = (pwr != null ? pwr : '—') + ' W';
 
-  // live rig meters (SWR / ALC / S / Vd / … — whatever the radio reports)
-  renderMeters($('chip-meters'), r.meters);
+  // live rig telemetry — power + whatever the radio reports (gains / SWR / …).
+  // Only shown when a rig link is actually feeding data.
+  const rig = {};
+  if (r.power_w != null) rig.PWR = r.power_w + ' W';
+  Object.assign(rig, r.meters || {});
+  $('rig-wrap').style.display = Object.keys(rig).length ? 'block' : 'none';
+  renderMeters($('chip-meters'), rig);
 
   // ── S-meter ──
   $('s-val').textContent = sig.s_meter || '—';
