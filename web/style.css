@@ -207,4 +207,13 @@ body::before {
 .spot-row .meta { color: var(--muted); font-size: 11px; }
 .spot-row .f { color: var(--amber); text-align: right; }
 
+/* ── PSKReporter ─────────────────────────────────────────── */
+.psk-open {
+  display: inline-block; font-family: var(--mono); font-size: 13px; letter-spacing: 2px;
+  color: var(--cyan); text-decoration: none; padding: 13px 22px;
+  border: 1px solid var(--border-strong); border-radius: 12px; background: var(--panel);
+  transition: border-color .2s, color .2s;
+}
+.psk-open:hover { border-color: var(--cyan); color: #eafffb; box-shadow: 0 0 18px rgba(63, 224, 207, 0.18); }
+
 .foot { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--muted); text-align: center; }

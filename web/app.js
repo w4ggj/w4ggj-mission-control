@@ -97,6 +97,18 @@ function render(s) {
       $('tag-a').textContent = (parts[0] || '').trim() + '.';
       $('tag-b').textContent = (parts.slice(1).join('.') || '').trim();
     }
+    // PSKReporter live map — signals SENT by our callsign, last 12h.
+    // Config can override with a full permalink via identity.pskreporter_url.
+    const cs = (id.callsign || 'W4GGJ').toUpperCase();
+    // Default: signals sent by our callsign (txrx=tx), last 15 min, with the
+    // usual display toggles. A full PSKReporter Permalink in config
+    // (identity.pskreporter_url) overrides this and carries every option exactly.
+    const pskUrl = id.pskreporter_url ||
+      `https://pskreporter.info/pskmap#preset&callsign=${encodeURIComponent(cs)}` +
+      `&txrx=tx&timerange=900&hideunrec=1&blankifnone=1&hidepink=1&showlines=1&hidetime=1`;
+    $('psk-call').textContent = cs;
+    if ($('psk-map')) $('psk-map').src = pskUrl;
+    if ($('psk-open')) $('psk-open').href = pskUrl;
   }
 
   // ── ON AIR / connection ──
