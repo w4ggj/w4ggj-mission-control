@@ -638,25 +638,46 @@ def _adif_loop():
 _qrz_log_active = False
 
 
+QRZ_API = "https://logbook.qrz.com/api"
+
+
+def _qrz_response(body):
+    """Parse a QRZ Logbook API response. The metadata fields (RESULT/COUNT/…) are
+    '&'-joined key=value pairs, but the ADIF payload is the FINAL field and QRZ
+    sends it RAW — literal <tags>, newlines, spaces, even stray '&' — so it must be
+    sliced off whole, not URL-decoded/split like the rest (which shreds it)."""
+    idx = body.find("ADIF=")
+    meta = body[:idx] if idx != -1 else body
+    fields = dict(urllib.parse.parse_qsl(meta, keep_blank_values=True))
+    adif = body[idx + 5:] if idx != -1 else ""
+    if "%3C" in adif or "%3c" in adif:      # some installs DO url-encode it
+        adif = urllib.parse.unquote_plus(adif)
+    fields["ADIF"] = adif
+    return fields
+
+
 def _qrz_fetch_records(api_key):
     """Download the full QRZ logbook as parsed ADIF records (read-only).
 
-    QRZ returns a form-encoded body (RESULT/COUNT/ADIF=…); the ADIF is fetched in
-    pages using AFTERLOGID pagination and the per-record APP_QRZLOG_LOGID cursor."""
-    base = "https://logbook.qrz.com/api"
+    Pages through the log with the AFTERLOGID cursor (per-record APP_QRZLOG_LOGID);
+    most logs return in one batch and the loop then stops on the empty next page."""
     records, after = [], 0
-    for _ in range(1000):  # safety cap on pages (~any real logbook fits well under)
+    for _ in range(1000):  # safety cap on pages (any real logbook fits well under)
         data = urllib.parse.urlencode({
             "KEY": api_key, "ACTION": "FETCH", "OPTION": f"AFTERLOGID:{after}",
         }).encode()
-        req = urllib.request.Request(base, data=data, headers=UA)
-        with urllib.request.urlopen(req, timeout=45) as resp:
+        req = urllib.request.Request(QRZ_API, data=data, headers=UA)
+        with urllib.request.urlopen(req, timeout=60) as resp:
             body = resp.read().decode("utf-8", "replace")
-        fields = dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
+        fields = _qrz_response(body)
         if fields.get("RESULT") != "OK":
             raise RuntimeError(fields.get("REASON") or fields.get("STATUS") or body[:160])
         recs = parse_adif(fields.get("ADIF", ""))
         if not recs:
+            if after == 0:   # first page empty despite RESULT=OK -> show what QRZ sent
+                print(f"[qrz] empty result — COUNT={fields.get('COUNT')} "
+                      f"fields={[k for k in fields if k != 'ADIF']} "
+                      f"adif_chars={len(fields.get('ADIF', ''))} head={body[:120]!r}")
             break
         records.extend(recs)
         ids = [int(r["app_qrzlog_logid"]) for r in recs
