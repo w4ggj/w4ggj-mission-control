@@ -9,6 +9,22 @@ let lastQsoTs = 0;
 let seenDecodeTs = 0;
 let firstLoad = true;
 
+/* ── live S-meter: ease toward the reading and gently wander in between, so the
+   needle always moves like a real meter instead of stepping every decode ──── */
+let sMeterTarget = 0, sMeterShown = 0, sMeterNoise = 0, sMeterNoiseAt = 0;
+function animateSMeter(ts) {
+  if (ts - sMeterNoiseAt > 170) {
+    sMeterNoiseAt = ts;
+    sMeterNoise = sMeterTarget > 0 ? (Math.random() - 0.5) * 5 : 0;
+  }
+  const goal = Math.max(0, Math.min(100, sMeterTarget + sMeterNoise));
+  sMeterShown += (goal - sMeterShown) * 0.12;
+  const m = $('s-mask');
+  if (m) m.style.left = sMeterShown.toFixed(2) + '%';
+  requestAnimationFrame(animateSMeter);
+}
+requestAnimationFrame(animateSMeter);
+
 /* ── UTC clock (local tick, no server round-trip) ─────────── */
 function tickClock() {
   const d = new Date();
@@ -128,7 +144,7 @@ function render(s) {
 
   // ── S-meter ──
   $('s-val').textContent = sig.s_meter || '—';
-  $('s-mask').style.left = (sig.s_pct || 0) + '%';
+  sMeterTarget = sig.s_pct || 0;   // animator eases the bar toward this
   $('s-snr').textContent = sig.snr == null ? '—' : (sig.snr > 0 ? '+' : '') + sig.snr + ' dB';
   $('s-snr').style.color = snrColor(sig.snr);
   $('s-mode').textContent = r.mode || '—';
