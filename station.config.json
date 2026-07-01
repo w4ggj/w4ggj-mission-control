@@ -19,11 +19,11 @@
   "tailscale_ip": "",
   "use_https": true,
 
-  "_section_wsjtx": "=== WSJT-X / JTDX UDP — broadcast FROM the station PC ===",
-  "_wsjtx_note": "WSJT-X runs on the station PC. Set its UDP Server (Settings > Reporting) to THIS dashboard PC's IP, port 2237. This PC binds 0.0.0.0:2237 to receive it. Already working if decodes show up.",
+  "_section_wsjtx": "=== WSJT-X / JTDX UDP ===",
+  "_wsjtx_note": "Agent runs on the station PC alongside WSJT-X. In WSJT-X Settings > Reporting set UDP Server 127.0.0.1 (localhost) and UDP Server port 2242. The agent binds 0.0.0.0:2242 to receive it.",
   "wsjtx_enabled": true,
   "wsjtx_udp_host": "0.0.0.0",
-  "wsjtx_udp_port": 2237,
+  "wsjtx_udp_port": 2242,
   "wsjtx_multicast_group": "",
   "_wsjtx_multicast_note": "Only if WSJT-X uses a multicast address (e.g. 239.255.0.0). Leave blank for normal unicast to this PC's IP.",
 

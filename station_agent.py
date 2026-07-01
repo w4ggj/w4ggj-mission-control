@@ -12,7 +12,7 @@ Setup:
        "cloud_url":    "https://w4ggj-mission-control.onrender.com"
        "ingest_token": "<same secret you set as INGEST_TOKEN on Render>"
      (or set env vars CLOUD_URL and INGEST_TOKEN instead)
-  2. Make sure WSJT-X on the station PC points its UDP Server at THIS PC:2237.
+  2. Make sure WSJT-X on the station PC points its UDP Server at THIS PC:2242.
   3. Run:  python station_agent.py
 
 Standard library only.

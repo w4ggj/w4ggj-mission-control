@@ -5,7 +5,7 @@ The "one Python engine" that reads the live station and exposes a single
 thread-safe STATE snapshot for the web dashboard.
 
 Live sources (all optional, all fail-soft):
-  * WSJT-X / JTDX UDP (port 2237)  -> live dial freq, mode, TX/RX, decodes
+  * WSJT-X / JTDX UDP (port 2242)  -> live dial freq, mode, TX/RX, decodes
   * wsjtx_log.adi (file watcher)    -> logged QSOs + cumulative stats
   * Hamlib rigctld (optional)       -> freq/mode for SSB/CW when not on FT8
   * HamQSL solar XML                -> SFI, A, K, sunspots, solar wind, bands
@@ -302,7 +302,7 @@ def _skip_qdatetime(r):
 
 def _wsjtx_loop():
     host = cfg("wsjtx_udp_host", "0.0.0.0")
-    port = int(cfg("wsjtx_udp_port", 2237))
+    port = int(cfg("wsjtx_udp_port", 2242))
     group = cfg("wsjtx_multicast_group", "") or ""
     while True:
         try:

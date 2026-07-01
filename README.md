@@ -13,7 +13,7 @@ No third-party Python packages — **standard library only**, matching the TavaO
 ## The setup this is built for
 
 ```
- ┌──────────────────────┐   WSJT-X UDP :2237    ┌────────────────────────┐
+ ┌──────────────────────┐   WSJT-X UDP :2242    ┌────────────────────────┐
  │  STATION PC          │  ───────────────────► │  DASHBOARD PC (this)   │
  │  Yaesu FT-450        │   (decodes, freq,     │  station_engine.py     │
  │  WSJT-X / JTDX       │    QSO-logged)        │  server.py  :8770      │
@@ -46,9 +46,9 @@ On the **station PC**, in **WSJT-X → File → Settings → Reporting**:
 
 - ☑ **Accept UDP requests**
 - **UDP Server:** the **dashboard PC's IP** (this machine — e.g. `192.168.x.x` or its Tailscale IP)
-- **UDP Server port:** `2237`
+- **UDP Server port:** `2242`
 
-This PC already binds `0.0.0.0:2237`, so once WSJT-X points here, decodes + frequency +
+This PC already binds `0.0.0.0:2242`, so once WSJT-X points here, decodes + frequency +
 logged QSOs stream across. (JTDX is identical. If WSJT-X uses a *multicast* address instead,
 put it in `wsjtx_multicast_group` in the config.)
 
