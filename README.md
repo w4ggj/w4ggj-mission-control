@@ -161,6 +161,20 @@ Work top-down — the agent console and the cloud health probe tell you which li
    **Settings > Reporting** enable *Accept UDP requests* and set **UDP Server `127.0.0.1`,
    port `2242`** (the agent must run on the same PC as WSJT-X).
 
+## Shack wall display (`/shack.html`)
+A second, purpose-built view for a dedicated monitor over the station: **everything on
+one fixed screen, no scrolling**, glanceable from across the room. Same live `/api/state`
+feed as the public dashboard — big frequency readout (glows red on transmit), the decode
+waterfall, S-meter, propagation, logbook + recent contacts, POTA, DX cluster and the ISS.
+
+- Open it at `/shack.html` (locally `http://localhost:8770/shack.html`, or your public URL).
+- Tuned for a 2560×1440 landscape monitor; the layout is fluid, so 1080p/4K fit too, and it
+  reflows to a stacked layout on portrait screens.
+- It's an operator view, unlisted (not linked from the public page). It shows the same data
+  the public site already serves — for true access control, put it behind your own reverse
+  proxy / basic-auth.
+- Kiosk tip: open it fullscreen (`F11`) in the browser and enable auto-start on the shack PC.
+
 ## Notes / roadmap
 - **Countries** is an *approximate* DXCC by callsign prefix (display only, not award-grade).
 - The S-meter is derived from FT8 **decode SNR**, not a calibrated reading.
