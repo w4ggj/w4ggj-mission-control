@@ -235,6 +235,34 @@ _session_qsos = []
 _file_log_active = False
 
 
+def _qso_key(call, date, hhmm, band, mode):
+    """Identity of a single QSO, for de-duplication. The same contact can now
+    reach us from more than one place — the live WSJT-X UDP stream, the cloner's
+    web-logger bridge / remote (2234) feed, and QRZ once an app has uploaded it —
+    so we collapse any that share call + date + minute + band + mode."""
+    return ((call or "").upper().strip(), (date or "")[:8], (hhmm or "")[:4],
+            (band or "").lower().strip(), (mode or "").upper().strip())
+
+
+def _hhmm_to_min(t):
+    t = (t or "")[:4]
+    try:
+        return int(t[:2]) * 60 + int(t[2:4])
+    except (ValueError, IndexError):
+        return -999
+
+
+def _is_dup_session_qso(q):
+    """True if a just-logged QSO already matches a recent session entry (same
+    call/band/mode/date within a couple of minutes) — a duplicate injection."""
+    for e in _session_qsos[-12:]:
+        if (e["call"] == q["call"] and e["band"] == q["band"]
+                and e["mode"] == q["mode"] and e["date"] == q["date"]
+                and abs(_hhmm_to_min(e["time"]) - _hhmm_to_min(q["time"])) <= 2):
+            return True
+    return False
+
+
 class _QReader:
     """Minimal big-endian QDataStream reader for WSJT-X datagrams."""
 
@@ -407,13 +435,19 @@ def _handle_wsjtx(data):
                 "country": callsign_country(dx_call) or "",
             }
             with _lock:
-                STATE["log"]["last_qso_ts"] = time.time()
-                _session_qsos.append(qso)
-                # QRZ or a local ADIF file is the authority when present; only
-                # build a live session log when neither is driving the panel.
-                if not _file_log_active and not _qrz_log_active:
-                    _rebuild_log_from_session()
-            print(f"[wsjtx] QSO logged: {dx_call} {qso['band']} {mode}")
+                # The same QSO can arrive more than once now that the cloner
+                # fans WSJT-X / web-logger / remote packets into one engine —
+                # drop duplicate injections so the log panel doesn't double up.
+                if _is_dup_session_qso(qso):
+                    print(f"[wsjtx] QSO logged (dup ignored): {dx_call} {qso['band']} {mode}")
+                else:
+                    STATE["log"]["last_qso_ts"] = time.time()
+                    _session_qsos.append(qso)
+                    # QRZ or a local ADIF file is the authority when present; only
+                    # build a live session log when neither is driving the panel.
+                    if not _file_log_active and not _qrz_log_active:
+                        _rebuild_log_from_session()
+                    print(f"[wsjtx] QSO logged: {dx_call} {qso['band']} {mode}")
     except Exception:
         pass  # malformed / partial datagram — ignore
 
@@ -625,6 +659,19 @@ def _apply_log_records(records, source_label):
     loggers fill it) and falls back to the approximate callsign-prefix guess."""
     my_grid = cfg("grid", "")
     my_ll = grid_to_latlon(my_grid) if my_grid else None
+
+    # Collapse duplicate records (e.g. QRZ transiently returning a fresh QSO
+    # twice after two apps upload it) so stats and the recent list stay honest.
+    seen, deduped = set(), []
+    for r in records:
+        key = _qso_key(r.get("call"), r.get("qso_date"),
+                       r.get("time_on"), r.get("band"),
+                       r.get("mode") or r.get("submode"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(r)
+    records = deduped
 
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
