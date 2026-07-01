@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4GGJ · Shack Display</title>
+<link rel="stylesheet" href="/shack.css">
+</head>
+<body>
+
+<div class="shack">
+
+  <!-- ── Header ────────────────────────────────────────────── -->
+  <div class="hdr">
+    <div class="brand">
+      <div class="logo">📡</div>
+      <div>
+        <div class="call" id="tb-call">W4GGJ</div>
+        <div class="sub" id="tb-sub">HOME STATION · HF · FT8</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="mini"><div class="l">SFI</div><div class="v amber" id="h-sfi">—</div></div>
+    <div class="mini"><div class="l">K-INDEX</div><div class="v" id="h-kp">—</div></div>
+    <div class="mini"><div class="l">QSOs</div><div class="v cyan" id="h-qsos">—</div></div>
+    <div class="mini"><div class="l">ISS RANGE</div><div class="v green" id="h-iss">—</div></div>
+    <div class="clock"><div class="t" id="utc">--:--:--</div><div class="l">UTC</div></div>
+    <div class="pill" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-txt">LINK</span></div>
+    <div class="pill" id="onair"><span class="dot" id="air-dot"></span><span id="air-txt">STANDBY</span></div>
+  </div>
+
+  <!-- ── Body grid ─────────────────────────────────────────── -->
+  <div class="body">
+
+    <!-- Frequency hero -->
+    <div class="panel a-freq" id="freq-panel">
+      <div class="hz"><span id="freq">--.---</span></div>
+      <div class="hz-unit">MHz · RX FREQUENCY</div>
+      <div class="chips">
+        <div class="chip" id="chip-band">—</div>
+        <div class="chip" id="chip-mode">—</div>
+        <div class="chip" id="chip-txrx">STANDBY</div>
+        <div class="chip" id="chip-src">NO SIGNAL</div>
+      </div>
+      <div class="dxline" id="dxline"></div>
+    </div>
+
+    <!-- Signal / S-meter -->
+    <div class="panel a-sig">
+      <div class="title">📶 SIGNAL · LAST DECODE</div>
+      <div class="s-val" id="s-val">—</div>
+      <div class="s-bar"><div class="mask" id="s-mask" style="left:0"></div></div>
+      <div class="s-scale"><span>S1</span><span>S3</span><span>S6</span><span>S9</span><span>+20</span><span>+40</span></div>
+      <div class="s-foot">
+        <div><div class="l">SNR</div><div class="v cyan" id="s-snr">—</div></div>
+        <div style="text-align:right"><div class="l">MODE</div><div class="v" id="s-mode">—</div></div>
+      </div>
+    </div>
+
+    <!-- Decode feed (tall) -->
+    <div class="panel a-feed">
+      <div class="title">🌊 LIVE DECODES · WSJT-X</div>
+      <div class="feed-row head"><div class="t">TIME</div><div class="snr">SNR</div><div>ΔF</div><div class="msg">MESSAGE</div></div>
+      <div class="feed" id="feed"><div class="empty">Waiting for WSJT-X decodes…</div></div>
+    </div>
+
+    <!-- Propagation -->
+    <div class="panel a-prop">
+      <div class="title">☀ PROPAGATION · HAMQSL</div>
+      <div class="stats g2">
+        <div class="stat"><div class="l">SOLAR FLUX</div><div class="v amber" id="p-sfi">—</div></div>
+        <div class="stat"><div class="l">K INDEX</div><div class="v" id="p-kp">—</div></div>
+        <div class="stat"><div class="l">SUNSPOTS</div><div class="v" id="p-ssn">—</div></div>
+        <div class="stat"><div class="l">SOLAR WIND</div><div class="v cyan sm" id="p-wind">—</div></div>
+      </div>
+      <div class="bands" id="bands"></div>
+    </div>
+
+    <!-- Logbook stats -->
+    <div class="panel a-logs">
+      <div class="title">📖 LOGBOOK</div>
+      <div class="stats g3">
+        <div class="stat"><div class="l">TOTAL</div><div class="v cyan" id="l-total">—</div></div>
+        <div class="stat"><div class="l">CALLS</div><div class="v cyan" id="l-calls">—</div></div>
+        <div class="stat"><div class="l">DXCC *</div><div class="v cyan" id="l-ctry">—</div></div>
+        <div class="stat"><div class="l">BANDS</div><div class="v cyan" id="l-bands">—</div></div>
+        <div class="stat"><div class="l">MODES</div><div class="v cyan" id="l-modes">—</div></div>
+        <div class="stat"><div class="l">BEST DX</div><div class="v cyan sm" id="l-dx">—</div></div>
+      </div>
+    </div>
+
+    <!-- Recent QSOs -->
+    <div class="panel a-qsos">
+      <div class="title">🏆 RECENT CONTACTS</div>
+      <table class="qtable">
+        <thead><tr><th>TIME</th><th>CALL</th><th>BAND</th><th>MODE</th><th>DXCC</th></tr></thead>
+        <tbody id="log-body"><tr><td colspan="5" class="empty">No contacts yet…</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- POTA -->
+    <div class="panel a-pota">
+      <div class="title">🌲 POTA SPOTS · LIVE</div>
+      <div class="list" id="pota"><div class="empty">Loading POTA spots…</div></div>
+    </div>
+
+    <!-- DX cluster -->
+    <div class="panel a-dx">
+      <div class="title">📻 DX CLUSTER · RECENT</div>
+      <div class="list" id="dx"><div class="empty">Loading DX spots…</div></div>
+    </div>
+
+    <!-- ISS -->
+    <div class="panel a-iss">
+      <div class="title">🛰 ISS (ZARYA)</div>
+      <div class="iss-pos" id="iss-pos">—</div>
+      <div class="iss-range" id="iss-range">—</div>
+      <div class="iss-foot">
+        <div><div class="l">ALTITUDE</div><div class="v" id="iss-alt">—</div></div>
+        <div style="text-align:right"><div class="l">VELOCITY</div><div class="v" id="iss-vel">—</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/shack.js"></script>
+</body>
+</html>
