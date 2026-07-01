@@ -17,6 +17,7 @@ No third-party packages required — Python standard library only.
 Author: built for W4GGJ / Joe
 """
 
+import html
 import json
 import math
 import os
@@ -644,14 +645,16 @@ QRZ_API = "https://logbook.qrz.com/api"
 def _qrz_response(body):
     """Parse a QRZ Logbook API response. The metadata fields (RESULT/COUNT/…) are
     '&'-joined key=value pairs, but the ADIF payload is the FINAL field and QRZ
-    sends it RAW — literal <tags>, newlines, spaces, even stray '&' — so it must be
-    sliced off whole, not URL-decoded/split like the rest (which shreds it)."""
+    ships it whole — so slice it off after 'ADIF=' rather than URL-decoding/splitting
+    the body (which shreds it). QRZ HTML-entity-encodes the ADIF (&lt;call:5&gt;…),
+    so unescape it back to real <tags> before the ADIF parser sees it."""
     idx = body.find("ADIF=")
     meta = body[:idx] if idx != -1 else body
     fields = dict(urllib.parse.parse_qsl(meta, keep_blank_values=True))
     adif = body[idx + 5:] if idx != -1 else ""
-    if "%3C" in adif or "%3c" in adif:      # some installs DO url-encode it
+    if "%3C" in adif or "%3c" in adif:      # some installs url-encode it
         adif = urllib.parse.unquote_plus(adif)
+    adif = html.unescape(adif)              # QRZ sends &lt;call:5&gt; -> <call:5>
     fields["ADIF"] = adif
     return fields
 
