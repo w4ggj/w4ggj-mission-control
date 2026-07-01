@@ -135,7 +135,14 @@ def main():
                           f"decodes={len(tel.get('decodes', []))} · "
                           f"log={tel.get('log', {}).get('total', 0)} QSOs")
                     if not ever_online:
-                        port = engine.cfg("wsjtx_udp_port", 2242)
+                        # With the cloner on, WSJT-X feeds the cloner's local
+                        # port (which relays to the engine); without it, WSJT-X
+                        # feeds the engine directly. Point the note at whichever
+                        # port WSJT-X should actually target.
+                        if engine.cfg("cloner_enabled", False):
+                            port = engine.cfg("cloner_local_port", 2235)
+                        else:
+                            port = engine.cfg("wsjtx_udp_port", 2242)
                         print("[agent] NOTE: no WSJT-X data received yet — in WSJT-X "
                               "Settings>Reporting enable 'Accept UDP requests' and set "
                               f"UDP Server 127.0.0.1 port {port}.")
