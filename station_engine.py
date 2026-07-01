@@ -939,8 +939,103 @@ def home_telemetry():
         return {k: json.loads(json.dumps(STATE[k], default=str)) for k in INGEST_SECTIONS}
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  Ham Radio Deluxe (HRD) — direct TCP client (live power / gains / SWR flag)
+# ══════════════════════════════════════════════════════════════════════════════
+# For stations where HRD owns the rig (WSJT-X -> HRD) so rigctld can't reach the
+# CAT port. Speaks HRD Rig Control's protocol on port 7809 directly, read-only.
+# HRD exposes RF power, the gains, and status flags (High SWR, Busy) — but NOT the
+# numeric PWR/SWR/ALC bar values, so we surface power + gains + a High-SWR warning.
+_HRD_SIG1 = 0x1234ABCD
+_HRD_SIG2 = 0xABCD1234
+
+
+def _hrd_build(text):
+    core = (struct.pack("<I", _HRD_SIG1) + struct.pack("<I", _HRD_SIG2)
+            + b"\x00\x00\x00\x00" + text.encode("utf-16-le") + b"\x00\x00")
+    return struct.pack("<I", 4 + len(core)) + core
+
+
+def _hrd_cmd(sock, text):
+    sock.sendall(_hrd_build(text))
+    hdr = b""
+    while len(hdr) < 4:
+        b = sock.recv(4 - len(hdr))
+        if not b:
+            raise ConnectionError("HRD closed")
+        hdr += b
+    total = struct.unpack("<I", hdr)[0]
+    body = b""
+    while len(body) < total - 4:
+        b = sock.recv(total - 4 - len(body))
+        if not b:
+            raise ConnectionError("HRD closed")
+        body += b
+    # body = sig1(4) + sig2(4) + zero(4) + UTF-16LE text
+    return body[12:].decode("utf-16-le", "replace").replace("\x00", "").strip()
+
+
+def _hrd_num(resp):
+    """slider-pos returns 'raw,display' (e.g. '146,57', '14,14 Hz'); take the
+    display field's leading number."""
+    part = resp.split(",")[-1].strip() if resp else ""
+    m = re.match(r"-?\d+(?:\.\d+)?", part)
+    return (float(m.group()) if m else None), part
+
+
+def _hrd_loop():
+    host = cfg("hrd_host", "127.0.0.1")
+    port = int(cfg("hrd_port", 7809))
+    interval = float(cfg("hrd_poll_sec", 1.0))
+    max_w = float(cfg("rig_max_power_watts", 100))
+    while True:
+        try:
+            with socket.create_connection((host, port), timeout=5) as sock:
+                sock.settimeout(4)
+                ctx = (_hrd_cmd(sock, "get context") or "").strip()
+                rig = _hrd_cmd(sock, f"[{ctx}] get radio") if ctx else ""
+                print(f"[hrd] connected {host}:{port} — context {ctx}, radio {rig!r}")
+
+                def g(c):
+                    try:
+                        return _hrd_cmd(sock, f"[{ctx}] {c}")
+                    except socket.timeout:
+                        return ""
+
+                while True:
+                    pw, _ = _hrd_num(g(f"get slider-pos {rig} RF~power"))
+                    swr_high = g("get button-select High~SWR").strip() == "1"
+                    _, mic = _hrd_num(g(f"get slider-pos {rig} Mic~gain"))
+                    _, rfg = _hrd_num(g(f"get slider-pos {rig} RF~gain"))
+                    _, nr = _hrd_num(g(f"get slider-pos {rig} Noise~reduction"))
+
+                    meters = {}
+                    if swr_high:
+                        meters["SWR"] = "HIGH"
+                    if rfg:
+                        meters["RF"] = rfg
+                    if mic:
+                        meters["MIC"] = mic
+                    if nr:
+                        meters["NR"] = nr
+                    with _lock:
+                        rd = STATE["radio"]
+                        rd["cat_online"] = True
+                        if pw is not None:
+                            # FT-450 RF power level (0..100) maps straight to watts
+                            rd["power_w"] = round(pw / 100 * max_w)
+                        rd["meters"] = meters
+                    time.sleep(interval)
+        except Exception as e:
+            with _lock:
+                STATE["radio"]["cat_online"] = False
+            print(f"[hrd] link error ({e}) — retry in 8s")
+            time.sleep(8)
+
+
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
-                 enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None):
+                 enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None,
+                 enable_hrd=None):
     STATE["engine_started"] = time.time()
     if enable_wsjtx is None:
         enable_wsjtx = cfg("wsjtx_enabled", True)
@@ -949,12 +1044,16 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
     if enable_qrz is None:
         enable_qrz = bool(os.environ.get("QRZ_API_KEY") or cfg("qrz_api_key", "")) \
             or cfg("qrz_enabled", False)
+    if enable_hrd is None:
+        enable_hrd = cfg("hrd_enabled", False)
 
     threads = []
     if enable_wsjtx:
         threads.append(("wsjtx", _wsjtx_loop))
     if enable_rigctld:
         threads.append(("rigctld", _rigctld_loop))
+    if enable_hrd:
+        threads.append(("hrd", _hrd_loop))
     if enable_adif:
         threads.append(("adif", _adif_loop))
     if enable_qrz:

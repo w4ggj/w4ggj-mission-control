@@ -127,6 +127,21 @@ Either way, restart the agent — the console prints `[rigctld] rig reports mete
 the live `POWER` value + meter strip (SWR/ALC/S/…) appear on both dashboards. You'll see
 exactly the subset your rig actually reports over CAT.
 
+### Ham Radio Deluxe, direct (no Hamlib)
+
+If **HRD** controls your rig and WSJT-X points at HRD, the agent can read HRD's TCP interface
+directly — no rigctld/Hamlib needed. In `station.config.json`:
+```json
+"hrd_enabled": true,
+"hrd_host": "127.0.0.1",
+"hrd_port": 7809
+```
+Restart the agent (`[hrd] connected … radio 'FT-450'`) and the live **POWER** value plus a
+meter strip (RF/Mic/NR gains, and a red **SWR HIGH** warning when the rig flags it) appear on
+both dashboards. Note: HRD doesn't expose the numeric PWR/SWR/ALC bar readings over TCP, so
+those specific numbers aren't available — you get power, gains, and the High-SWR flag. Use
+`hrd_enabled` **or** `rigctld_enabled`, not both.
+
 ---
 
 ## Files
