@@ -18,7 +18,7 @@ let sMeterTarget = 0, sMeterShown = 0, sMeterVel = 0, sMeterNoise = 0, sMeterNoi
 function buildSMeter(id) {
   const el = document.getElementById(id);
   if (!el) return;
-  const cx = 120, cy = 108, R = 96, rMaj = 80, rMin = 88, lr = 105;
+  const cx = 120, cy = 108, R = 90, rMaj = 74, rMin = 82, lr = 96;
   const labels = ['S1', 'S3', 'S6', 'S9', '+20', '+40'];
   const ang = (pct) => (pct / 100 * 108 - 54) * Math.PI / 180;   // -54°…+54°
   let s = '<svg viewBox="0 0 240 120" preserveAspectRatio="xMidYMid meet">';
