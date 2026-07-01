@@ -26,6 +26,7 @@ import socket
 import struct
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -33,7 +34,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-UA = {"User-Agent": "W4GGJ-MissionControl/1.0"}
+# Browser-like User-Agent. Some public feeds (notably the Cloudflare-fronted
+# dxsummit.fi DX-cluster API) 403 non-browser agents like "Python-urllib" or a
+# bare product token, which left the DX panel permanently empty on the cloud.
+UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/122.0.0.0 Safari/537.36"}
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -926,7 +932,17 @@ def _dx_loop():
     interval = int(cfg("poll_dx_sec", 120))
     while True:
         try:
-            spots = json.loads(_get("https://www.dxsummit.fi/api/v1/spots?limit=20"))
+            raw = _get("https://www.dxsummit.fi/api/v1/spots?limit=25")
+            try:
+                spots = json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                # Cloudflare challenge / HTML error page instead of JSON — log a
+                # snippet so the cause is visible in the Render logs.
+                body = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
+                print(f"[dx] non-JSON response ({len(body)}B): {body[:140]!r}")
+                spots = []
+            if not isinstance(spots, list):
+                spots = []
             out = []
             for s in spots[:16]:
                 fq = float(s.get("frequency", 0) or 0)
@@ -937,6 +953,10 @@ def _dx_loop():
                 })
             with _lock:
                 STATE["dx"] = out
+            if out:
+                print(f"[dx] {len(out)} spots")
+        except urllib.error.HTTPError as e:
+            print(f"[dx] HTTP {e.code} from dxsummit.fi")
         except Exception as e:
             print(f"[dx] {e}")
         time.sleep(interval)
