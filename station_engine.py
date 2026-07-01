@@ -83,6 +83,10 @@ STATE = {
         "dx_call": "",
         "report": "",
         "last_seen": 0,
+        # live rig telemetry from Hamlib rigctld (optional)
+        "cat_online": False,
+        "power_w": None,        # actual/set TX power in watts (None = not reported)
+        "meters": {},           # {label: "value"} — SWR, ALC, S, Vd, … whatever the rig reports
     },
     "decodes": [],              # recent WSJT-X decodes (newest first)
     "signal": {"snr": None, "s_meter": "—", "s_pct": 0},
@@ -414,38 +418,115 @@ def _handle_wsjtx(data):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  Hamlib rigctld poller (optional — for SSB/CW freq when not on FT8)
+#  Hamlib rigctld poller — live rig telemetry (freq/mode/PTT + meters)
 # ══════════════════════════════════════════════════════════════════════════════
+# Reads whatever the rig exposes over CAT via rigctld: real power, SWR, ALC,
+# S-meter, drain voltage/current, temp, etc. Each rig/backend supports a different
+# subset, so we probe once on connect and then stream only what actually reports.
+#
+# (label, Hamlib level name, unit suffix, decimals, tx_only)
+_RIG_METERS = [
+    ("SWR",  "SWR",        "",   2, True),
+    ("ALC",  "ALC",        "",   2, True),
+    ("COMP", "COMP_METER", "dB", 0, True),
+    ("S",    "STRENGTH",   "dB", 0, False),
+    ("Vd",   "VD_METER",   "V",  1, False),
+    ("Id",   "ID_METER",   "A",  1, False),
+    ("TEMP", "TEMP_METER", "",   0, False),
+]
+
+
 def _rigctld_cmd(sock, cmd):
     sock.sendall((cmd + "\n").encode())
     return sock.recv(1024).decode("utf-8", "replace").strip()
 
 
+def _rigctld_level(sock, name):
+    """Read one Hamlib level via rigctld. Returns a float, or None if the rig /
+    backend doesn't support it (rigctld answers 'RPRT -n')."""
+    try:
+        sock.sendall((f"l {name}\n").encode())
+        resp = sock.recv(256).decode("utf-8", "replace").strip()
+    except Exception:
+        return None
+    if not resp or resp.startswith("RPRT"):
+        return None
+    try:
+        return float(resp.split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
 def _rigctld_loop():
     host = cfg("rigctld_host", "127.0.0.1")
     port = int(cfg("rigctld_port", 4532))
+    max_w = float(cfg("rig_max_power_watts", 100))
+    interval = float(cfg("rigctld_poll_sec", 1.0))
     while True:
         try:
             with socket.create_connection((host, port), timeout=5) as sock:
                 sock.settimeout(3)
                 print(f"[rigctld] connected {host}:{port}")
+                # Probe once: keep only the meters/power sources this rig reports.
+                supported = [m for m in _RIG_METERS
+                             if _rigctld_level(sock, m[1]) is not None]
+                has_po_w = _rigctld_level(sock, "RFPOWER_METER_WATTS") is not None
+                has_po_frac = (not has_po_w
+                               and _rigctld_level(sock, "RFPOWER_METER") is not None)
+                has_set = _rigctld_level(sock, "RFPOWER") is not None
+                print(f"[rigctld] rig reports meters: "
+                      f"{[m[0] for m in supported] or 'none'} | power: "
+                      f"{'measured W' if has_po_w else 'measured %' if has_po_frac else 'set level' if has_set else 'n/a'}")
+
                 while True:
                     freq = _rigctld_cmd(sock, "f")
-                    mode = _rigctld_cmd(sock, "m").splitlines()[0] if True else ""
+                    mode = (_rigctld_cmd(sock, "m").splitlines() or [""])[0]
+                    tx = _rigctld_cmd(sock, "t").strip() == "1"
                     hz = int(freq) if freq.isdigit() else 0
+
+                    # measured TX power out (watts), only meaningful while keyed
+                    po = None
+                    if has_po_w:
+                        v = _rigctld_level(sock, "RFPOWER_METER_WATTS")
+                        po = round(v) if v is not None else None
+                    elif has_po_frac:
+                        v = _rigctld_level(sock, "RFPOWER_METER")
+                        po = round(v * max_w) if v is not None else None
+                    # the power-knob setting (steady, shown as POWER)
+                    set_w = None
+                    if has_set:
+                        v = _rigctld_level(sock, "RFPOWER")
+                        set_w = round(v * max_w) if v is not None else None
+
+                    meters = {}
+                    if po is not None and tx:
+                        meters["PO"] = f"{po} W"
+                    for label, lvl, unit, dec, tx_only in supported:
+                        if tx_only and not tx:
+                            continue
+                        v = _rigctld_level(sock, lvl)
+                        if v is not None:
+                            meters[label] = f"{v:.{dec}f}{(' ' + unit) if unit else ''}"
+
                     with _lock:
-                        # WSJT-X wins when it's actively feeding us
-                        if STATE["radio"]["source"] != "WSJT-X" or \
-                           time.time() - STATE["radio"]["last_seen"] > 10:
-                            STATE["radio"].update({
+                        rd = STATE["radio"]
+                        rd["cat_online"] = True
+                        rd["power_w"] = set_w if set_w is not None else po
+                        rd["meters"] = meters
+                        # WSJT-X drives freq/mode/tx when it's actively feeding us;
+                        # otherwise rigctld does. Meters flow either way.
+                        if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
+                            rd.update({
                                 "online": True, "source": "rigctld",
                                 "dial_hz": hz, "rx_hz": hz,
                                 "freq_mhz": round(hz / 1e6, 6),
                                 "band": freq_to_band(hz), "mode": mode or "—",
-                                "last_seen": time.time(),
+                                "tx": tx, "last_seen": time.time(),
                             })
-                    time.sleep(0.5)
+                    time.sleep(interval)
         except Exception:
+            with _lock:
+                STATE["radio"]["cat_online"] = False
             time.sleep(8)
 
 

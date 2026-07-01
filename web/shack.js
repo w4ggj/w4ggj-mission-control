@@ -43,6 +43,17 @@ function snrColor(snr) {
   return 'var(--muted)';
 }
 function esc(s) { return (s || '').replace(/</g, '&lt;'); }
+function renderMeters(el, meters) {
+  if (!el) return;
+  const keys = Object.keys(meters || {});
+  if (!keys.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = keys.map(k => {
+    let color = 'var(--cyan)';
+    if (k === 'SWR') { const n = parseFloat(meters[k]); if (n > 2) color = 'var(--red)'; else if (n > 1.5) color = 'var(--amber)'; }
+    return `<div class="chip">${esc(k)} <b style="color:${color}">${esc(String(meters[k]))}</b></div>`;
+  }).join('');
+}
 
 /* ── render ──────────────────────────────────────────────── */
 function render(s) {
@@ -86,6 +97,12 @@ function render(s) {
   else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
   $('dxline').textContent = r.dx_call ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
+
+  // live rig meters (power + SWR / ALC / S / … whatever Hamlib reports)
+  const meters = {};
+  if (r.power_w != null) meters.PWR = r.power_w + ' W';
+  Object.assign(meters, r.meters || {});
+  renderMeters($('sk-meters'), meters);
 
   // S-meter
   $('s-val').textContent = sig.s_meter || '—';

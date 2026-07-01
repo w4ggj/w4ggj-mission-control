@@ -87,20 +87,45 @@ differs — it drives ISS range and Best-DX distance.
 
 ---
 
-## Optional: SSB / CW frequency via Hamlib
+## Optional: live rig telemetry via Hamlib (power / SWR / ALC / meters)
 
-For non-FT8 operating (WSJT-X isn't broadcasting then), frequency can come from **Hamlib
-`rigctld`** running on the **station PC**:
+Enable **Hamlib `rigctld`** to stream live data from the rig — actual TX power, SWR, ALC,
+S-meter, drain voltage/current, temperature — instead of a hardcoded power number. The agent
+reads from `rigctld` at `rigctld_host:rigctld_port`; the dashboard **probes on connect** and
+shows only what the rig reports (each rig/backend supports a different subset), logging the
+list to the agent console. Common to every setup, in `station.config.json`:
 
-```
-rigctld -m 1023 -r COM? -s 4800        # 1023 = Yaesu FT-450 in Hamlib
-```
 ```json
 "rigctld_enabled": true,
-"rigctld_host": "192.168.x.x",         // the STATION PC's IP
-"rigctld_port": 4532
+"rigctld_host": "127.0.0.1",
+"rigctld_port": 4532,
+"rig_max_power_watts": 100
 ```
-(Confirm your FT-450's COM port and baud; `rigctl --list | findstr FT-450`.)
+
+The one thing that differs is **what `rigctld` connects to** — whatever already controls the
+radio. Only one program can own the CAT port, so `rigctld` attaches to that program (or is it):
+
+**A) A control program owns the rig — e.g. Ham Radio Deluxe (WSJT-X → HRD).**
+Point `rigctld` at HRD's TCP server (multiple clients allowed, so it runs alongside WSJT-X);
+leave WSJT-X on HRD:
+```
+rigctl --list | findstr /i deluxe        # find the Hamlib "Ham Radio Deluxe" model number
+rigctld -m <HRD_model> -r 127.0.0.1:7809 # HRD Rig Control server (default port 7809)
+```
+Freq/mode/PTT already reach the dashboard via WSJT-X UDP; this bridge adds whatever HRD
+exposes (typically the **power** level; SWR/ALC depend on HRD + the rig). *(FLRig is the same
+idea: `rigctld -m 4 -r 127.0.0.1:12345`.)*
+
+**B) WSJT-X controls the rig directly (no HRD).**
+Run `rigctld` as the hub and point WSJT-X at it (`Rig = Hamlib NET rigctl`, server
+`127.0.0.1:4532`):
+```
+rigctld -m 1023 -r COM? -s 38400         # 1023 = Yaesu FT-450; confirm COM port & baud
+```
+
+Either way, restart the agent — the console prints `[rigctld] rig reports meters: [...]`, and
+the live `POWER` value + meter strip (SWR/ALC/S/…) appear on both dashboards. You'll see
+exactly the subset your rig actually reports over CAT.
 
 ---
 
