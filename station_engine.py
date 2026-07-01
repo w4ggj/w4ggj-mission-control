@@ -68,6 +68,7 @@ STATE = {
         "digital": cfg("digital", ""),
         "tagline": cfg("tagline", ""),
         "subtitle": cfg("subtitle", ""),
+        "pskreporter_url": cfg("pskreporter_url", ""),
     },
     # live radio (WSJT-X / rigctld)
     "radio": {
