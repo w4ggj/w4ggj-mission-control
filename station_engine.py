@@ -25,6 +25,7 @@ import socket
 import struct
 import threading
 import time
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
@@ -402,7 +403,9 @@ def _handle_wsjtx(data):
             with _lock:
                 STATE["log"]["last_qso_ts"] = time.time()
                 _session_qsos.append(qso)
-                if not _file_log_active:
+                # QRZ or a local ADIF file is the authority when present; only
+                # build a live session log when neither is driving the panel.
+                if not _file_log_active and not _qrz_log_active:
                     _rebuild_log_from_session()
             print(f"[wsjtx] QSO logged: {dx_call} {qso['band']} {mode}")
     except Exception:
@@ -532,26 +535,22 @@ def _rebuild_log_from_session():
     })
 
 
-def _recompute_log(path):
-    global _file_log_active
-    try:
-        text = path.read_text(encoding="utf-8", errors="ignore")
-    except Exception as e:
-        print(f"[adif] read failed: {e}")
-        return
-    recs = parse_adif(text)
+def _apply_log_records(records, source_label):
+    """Compute logbook stats from parsed ADIF records and publish to STATE['log'].
+    Shared by the local ADIF file watcher and the QRZ logbook sync so both paths
+    produce identical stats. Prefers each record's own COUNTRY field (QRZ and most
+    loggers fill it) and falls back to the approximate callsign-prefix guess."""
     my_grid = cfg("grid", "")
     my_ll = grid_to_latlon(my_grid) if my_grid else None
 
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
-    band_bd, mode_bd = {}, {}
-    best = None
-    recent = []
-    for r in recs:
+    band_bd, mode_bd, best = {}, {}, None
+    for r in records:
         call = (r.get("call") or "").upper()
         band = (r.get("band") or "").lower()
-        mode = (r.get("mode") or "").upper()
+        mode = (r.get("mode") or r.get("submode") or "").upper()
         grid = (r.get("gridsquare") or "").upper()
+        ctry = (r.get("country") or "").strip() or callsign_country(call)
         if call:
             calls.add(call)
         if band:
@@ -562,7 +561,6 @@ def _recompute_log(path):
             mode_bd[mode] = mode_bd.get(mode, 0) + 1
         if grid:
             grids.add(grid[:4])
-        ctry = callsign_country(call)
         if ctry:
             countries.add(ctry)
         if my_ll and grid:
@@ -570,28 +568,41 @@ def _recompute_log(path):
             if km and (best is None or km > best["km"]):
                 best = {"call": call, "km": round(km), "country": ctry or "", "grid": grid[:6]}
 
-    for r in recs[-15:][::-1]:
+    # newest 15 by QSO date/time, independent of file/record order
+    recent = []
+    for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")))[-15:][::-1]:
         recent.append({
-            "date": r.get("qso_date", ""), "time": r.get("time_on", "")[:4],
+            "date": r.get("qso_date", ""), "time": (r.get("time_on", "") or "")[:4],
             "call": (r.get("call") or "").upper(),
             "band": (r.get("band") or "").lower(),
             "freq": r.get("freq", ""),
-            "mode": (r.get("mode") or "").upper(),
+            "mode": (r.get("mode") or r.get("submode") or "").upper(),
             "rst_s": r.get("rst_sent", ""), "rst_r": r.get("rst_rcvd", ""),
-            "country": callsign_country((r.get("call") or "").upper()) or "",
+            "country": (r.get("country") or "").strip()
+                       or callsign_country((r.get("call") or "").upper()) or "",
         })
 
     with _lock:
         prev_total = STATE["log"]["total"]
         STATE["log"].update({
-            "total": len(recs), "unique_calls": len(calls), "bands": len(bands),
+            "total": len(records), "unique_calls": len(calls), "bands": len(bands),
             "modes": len(modes), "countries": len(countries), "grids": len(grids),
             "best_dx": best, "recent": recent,
             "band_breakdown": band_bd, "mode_breakdown": mode_bd,
-            "adif_path": str(path),
+            "adif_path": source_label,
         })
-        if len(recs) > prev_total and prev_total > 0:
+        if len(records) > prev_total and prev_total > 0:
             STATE["log"]["last_qso_ts"] = time.time()
+
+
+def _recompute_log(path):
+    global _file_log_active
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        print(f"[adif] read failed: {e}")
+        return
+    _apply_log_records(parse_adif(text), str(path))
     _file_log_active = True
 
 
@@ -616,6 +627,67 @@ def _adif_loop():
         except Exception:
             pass
         time.sleep(5)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  QRZ.com Logbook API sync  (full log + all new contacts, any mode)
+# ══════════════════════════════════════════════════════════════════════════════
+# When a QRZ Logbook API key is present the logbook panel is driven entirely by
+# QRZ — your complete history plus every new QSO your apps upload there, regardless
+# of mode. READ-ONLY: only ACTION=FETCH is used; nothing is ever written to QRZ.
+_qrz_log_active = False
+
+
+def _qrz_fetch_records(api_key):
+    """Download the full QRZ logbook as parsed ADIF records (read-only).
+
+    QRZ returns a form-encoded body (RESULT/COUNT/ADIF=…); the ADIF is fetched in
+    pages using AFTERLOGID pagination and the per-record APP_QRZLOG_LOGID cursor."""
+    base = "https://logbook.qrz.com/api"
+    records, after = [], 0
+    for _ in range(1000):  # safety cap on pages (~any real logbook fits well under)
+        data = urllib.parse.urlencode({
+            "KEY": api_key, "ACTION": "FETCH", "OPTION": f"AFTERLOGID:{after}",
+        }).encode()
+        req = urllib.request.Request(base, data=data, headers=UA)
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            body = resp.read().decode("utf-8", "replace")
+        fields = dict(urllib.parse.parse_qsl(body, keep_blank_values=True))
+        if fields.get("RESULT") != "OK":
+            raise RuntimeError(fields.get("REASON") or fields.get("STATUS") or body[:160])
+        recs = parse_adif(fields.get("ADIF", ""))
+        if not recs:
+            break
+        records.extend(recs)
+        ids = [int(r["app_qrzlog_logid"]) for r in recs
+               if (r.get("app_qrzlog_logid") or "").isdigit()]
+        nxt = max(ids) if ids else 0
+        if nxt <= after:   # cursor didn't advance -> that was the last/only batch
+            break
+        after = nxt
+    return records
+
+
+def _qrz_loop():
+    global _qrz_log_active
+    key = os.environ.get("QRZ_API_KEY", "") or cfg("qrz_api_key", "")
+    if not key:
+        print("[qrz] no API key — set QRZ_API_KEY (or qrz_api_key). QRZ sync disabled.")
+        return
+    interval = int(cfg("qrz_sync_sec", 300))
+    print(f"[qrz] logbook sync ON (read-only) — refresh every {interval}s")
+    while True:
+        try:
+            recs = _qrz_fetch_records(key)
+            if recs:
+                _apply_log_records(recs, f"QRZ Logbook ({len(recs)} QSOs)")
+                _qrz_log_active = True
+                print(f"[qrz] synced {len(recs)} QSOs from QRZ")
+            else:
+                print("[qrz] fetch returned 0 records — check API key / logbook not empty")
+        except Exception as e:
+            print(f"[qrz] sync failed ({e}) — keeping last log, retrying")
+        time.sleep(interval)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -763,12 +835,15 @@ def home_telemetry():
 
 
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
-                 enable_pollers=True, enable_ingest_watchdog=False):
+                 enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None):
     STATE["engine_started"] = time.time()
     if enable_wsjtx is None:
         enable_wsjtx = cfg("wsjtx_enabled", True)
     if enable_rigctld is None:
         enable_rigctld = cfg("rigctld_enabled", False)
+    if enable_qrz is None:
+        enable_qrz = bool(os.environ.get("QRZ_API_KEY") or cfg("qrz_api_key", "")) \
+            or cfg("qrz_enabled", False)
 
     threads = []
     if enable_wsjtx:
@@ -777,6 +852,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         threads.append(("rigctld", _rigctld_loop))
     if enable_adif:
         threads.append(("adif", _adif_loop))
+    if enable_qrz:
+        threads.append(("qrz", _qrz_loop))
     if enable_pollers:
         threads += [("solar", _solar_loop), ("pota", _pota_loop),
                     ("iss", _iss_loop), ("dx", _dx_loop)]

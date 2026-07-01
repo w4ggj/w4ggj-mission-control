@@ -33,6 +33,10 @@
   "_adif_note": "Cross-PC options: (A) share the station PC's WSJT-X folder and put its UNC path here, e.g. \\\\STATION-PC\\Users\\NAME\\AppData\\Local\\WSJT-X\\wsjtx_log.adi  -> FULL history. (B) leave blank with adif_autodetect=false -> the dashboard builds a LIVE log straight from WSJT-X UDP as you log each QSO (this session).",
   "extra_adif_paths": [],
 
+  "_section_qrz": "=== QRZ LOGBOOK API (recommended log source) ===",
+  "_qrz_note": "Read-only pull of your FULL QRZ logbook (all history + every new contact your apps upload, any mode). The secret API KEY goes in agent.config.json (gitignored) as \"qrz_api_key\" or the QRZ_API_KEY env var — NOT here. When a key is set QRZ drives the logbook and the local WSJT-X ADIF is ignored.",
+  "qrz_sync_sec": 300,
+
   "_section_rigctld": "=== HAMLIB rigctld (optional CAT for SSB/CW freq) ===",
   "rigctld_enabled": false,
   "rigctld_host": "127.0.0.1",
