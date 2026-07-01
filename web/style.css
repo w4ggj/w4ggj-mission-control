@@ -168,7 +168,7 @@ body::before {
 .smeter .s-val { font-family: var(--stencil); font-size: 46px; text-align: center; }
 .s-bar { height: 14px; border-radius: 8px; margin: 12px 0 6px;
   background: linear-gradient(90deg, #24d97a, #a9e34b 40%, var(--amber) 68%, var(--red)); position: relative; }
-.s-bar .mask { position: absolute; top: 0; right: 0; bottom: 0; background: rgba(5,7,13,0.82); border-radius: 8px; transition: left .4s; }
+.s-bar .mask { position: absolute; top: 0; right: 0; bottom: 0; background: rgba(5,7,13,0.82); border-radius: 8px; }
 .s-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--muted); }
 
 /* ── Decode feed ─────────────────────────────────────────── */

@@ -149,7 +149,7 @@ body::before {
 .s-val { font-family: var(--stencil); font-size: clamp(32px, 3.7vw, 84px); text-align: center; line-height: 1; color: var(--cyan); }
 .s-bar { height: clamp(12px, 1.6vh, 24px); border-radius: 8px; margin: clamp(9px, 1.3vh, 18px) 0 6px; position: relative;
   background: linear-gradient(90deg, #24d97a, #a9e34b 40%, var(--amber) 68%, var(--red)); }
-.s-bar .mask { position: absolute; inset: 0 0 0 auto; left: 0; background: rgba(5,7,13,0.82); border-radius: 8px; transition: left .4s; }
+.s-bar .mask { position: absolute; inset: 0 0 0 auto; left: 0; background: rgba(5,7,13,0.82); border-radius: 8px; }
 .s-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: clamp(8px, 0.68vw, 13px); color: var(--muted); }
 .s-foot { display: flex; justify-content: space-between; margin-top: clamp(9px, 1.2vh, 18px); }
 .s-foot .l { font-family: var(--mono); font-size: clamp(9px, 0.72vw, 14px); letter-spacing: 2px; color: var(--muted); }
