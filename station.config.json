@@ -74,5 +74,10 @@
   "poll_solar_sec": 600,
   "poll_pota_sec": 60,
   "poll_iss_sec": 10,
-  "poll_dx_sec": 120
+  "poll_dx_sec": 120,
+
+  "_section_dxcluster": "=== DX CLUSTER (live spots panel) ===",
+  "_dxcluster_note": "The DX Cluster panel streams live spots from a telnet cluster node (dxsummit.fi's HTTP API is unreachable from the cloud host). Point at any public node. It logs in with the station callsign. Override without a redeploy via Render env vars DX_CLUSTER_HOST / DX_CLUSTER_PORT if the default node is unreachable. Alternatives: dxc.ve7cc.net:23, dxfun.com:8000, cluster.dl9gtb.de:8000.",
+  "dx_cluster_host": "dxc.nc7j.com",
+  "dx_cluster_port": 7373
 }
