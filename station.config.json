@@ -29,6 +29,22 @@
   "wsjtx_multicast_group": "",
   "_wsjtx_multicast_note": "Only if WSJT-X uses a multicast address (e.g. 239.255.0.0). Leave blank for normal unicast to this PC's IP.",
 
+  "_section_cloner": "=== UDP CLONER + WEB LOGGER BRIDGE (folds the standalone udp_cloner into this agent) ===",
+  "_cloner_note": "WSJT-X can only send its UDP stream to ONE destination. Turn this on to run the cloner in the same process as the agent: point WSJT-X at cloner_local_port (2235) and it clones a verbatim copy to every target below PLUS the dashboard engine (wsjtx_udp_port, added automatically) — so one WSJT-X port feeds your other apps AND this dashboard. cloner_adif_path blank = no local ADIF file (QRZ stays the logbook). cloner_blog_folder blank = park-ref watcher off. callsign/grid above are reused for the web-logger Type-5 packets.",
+  "cloner_enabled": false,
+  "cloner_local_port": 2235,
+  "cloner_remote_port": 2234,
+  "cloner_bridge_port": 12061,
+  "cloner_targets": [
+    ["127.0.0.1", 2236],
+    ["192.168.4.223", 2237],
+    ["127.0.0.1", 2238],
+    ["127.0.0.1", 2239]
+  ],
+  "cloner_adif_path": "",
+  "cloner_blog_folder": "",
+  "cloner_scan_sec": 30,
+
   "_section_adif": "=== LOGBOOK (ADIF) — full history lives on the STATION PC ===",
   "adif_autodetect": true,
   "adif_log_path": "",

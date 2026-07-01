@@ -15,6 +15,13 @@ Setup:
   2. Make sure WSJT-X on the station PC points its UDP Server at THIS PC:2242.
   3. Run:  python station_agent.py
 
+Optional — UDP cloner + web logger bridge (folded in):
+  If you also run the standalone udp_cloner_with_adif.py, set "cloner_enabled":
+  true in station.config.json instead. WSJT-X can only send its UDP to ONE
+  place, so point WSJT-X at the cloner's port (2235) and the cloner relays a
+  copy to the dashboard engine (2242) plus your other apps. One process, one
+  WSJT-X port. See station_cloner.py.
+
 Standard library only.
 """
 
@@ -25,6 +32,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import station_cloner
 import station_engine as engine
 
 HERE = Path(__file__).resolve().parent
@@ -76,6 +84,29 @@ def main():
     # local WSJT-X ADIF.
     engine.start_engine(enable_wsjtx=True, enable_adif=not qrz_key,
                         enable_pollers=False, enable_qrz=bool(qrz_key))
+
+    # Optional: fold in the UDP cloner + web logger bridge so a single WSJT-X
+    # UDP port feeds both the fan-out apps and this dashboard. The cloner clones
+    # a verbatim copy of every packet to the engine's WSJT-X port, so the engine
+    # keeps binding it as usual — no engine change. See station_cloner.py.
+    if engine.cfg("cloner_enabled", False):
+        engine_port = int(engine.cfg("wsjtx_udp_port", 2242))
+        station_cloner.start({
+            "cloner_local_port":  engine.cfg("cloner_local_port", 2235),
+            "cloner_remote_port": engine.cfg("cloner_remote_port", 2234),
+            "cloner_bridge_port": engine.cfg("cloner_bridge_port", 12061),
+            "cloner_targets":     engine.cfg("cloner_targets", []),
+            "cloner_adif_path":   engine.cfg("cloner_adif_path", ""),
+            "cloner_blog_folder": engine.cfg("cloner_blog_folder", ""),
+            "cloner_scan_sec":    engine.cfg("cloner_scan_sec", 30),
+            "engine_udp_port":    engine_port,
+            "callsign":           engine.cfg("callsign", "W4GGJ"),
+            "grid":               engine.cfg("grid", "EL87"),
+        })
+        print(f"[agent] cloner ON — point WSJT-X at UDP "
+              f"{engine.cfg('cloner_local_port', 2235)} (it relays to the "
+              f"dashboard on {engine_port} + your other apps)")
+
     print(f"[agent] pushing telemetry to {url} every {PUSH_INTERVAL:.0f}s")
     print("[agent] logbook source: " + ("QRZ Logbook API (read-only)" if qrz_key
                                         else "WSJT-X ADIF / live UDP"))
