@@ -114,7 +114,14 @@ def main():
 
     if ROLE == "cloud":
         # Render/cloud: public pollers + accept ingest, no local radio access.
+        # Explicitly disable every home-only source — WSJT-X, ADIF, QRZ, and the
+        # rig links (rigctld/HRD). Those are enabled by default in the shared
+        # station.config.json for the home agent, but the cloud has no radio, so
+        # leaving them on made it retry-spam "connection refused" against HRD/
+        # rigctld on 127.0.0.1. Live rig telemetry reaches the cloud via the home
+        # agent's ingest (the radio section), not from the cloud itself.
         engine.start_engine(enable_wsjtx=False, enable_adif=False,
+                            enable_rigctld=False, enable_hrd=False, enable_qrz=False,
                             enable_pollers=True, enable_ingest_watchdog=True)
         port = int(os.environ.get("PORT", cfg.get("web_port", 8770)))
         host = "0.0.0.0"
