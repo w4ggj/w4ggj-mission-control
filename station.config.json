@@ -7,7 +7,7 @@
   "grid": "EL87",
   "qth": "Tampa Bay, FL",
   "rig": "Yaesu FT-450",
-  "power_watts": 100,
+  "power_watts": 50,
   "modes": "FT8 · FT4 · SSB · CW",
   "digital": "FT8 · FT4",
   "tagline": "Always further. Always connected.",
