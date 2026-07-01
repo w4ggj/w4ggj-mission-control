@@ -928,38 +928,90 @@ def _iss_loop():
         time.sleep(interval)
 
 
+# A DX-cluster "DX de" spot line, e.g.
+#   DX de EA4XYZ:     14074.0  K1ABC        FT8 -12 dB              1432Z
+_DX_RE = re.compile(
+    r"^DX de\s+([A-Z0-9/\-#]+)\s*:?\s+(\d+(?:\.\d+)?)\s+([A-Z0-9/\-]+)\s*(.*)$",
+    re.I)
+
+
+def _parse_dx_spot(line):
+    """Parse one DX-cluster spot line into a panel row, or None."""
+    m = _DX_RE.match(line.strip())
+    if not m:
+        return None
+    spotter, khz_s, dxc, rest = m.groups()
+    try:
+        khz = float(khz_s)
+    except ValueError:
+        return None
+    if khz <= 0:
+        return None
+    rest = re.sub(r"\s*\b\d{3,4}Z\b.*$", "", rest.strip()).strip()  # drop trailing NNNNZ + grid
+    return {
+        "dx": dxc.upper(),
+        "spotter": spotter.upper().rstrip("#").rstrip("-"),
+        "freq": round(khz / 1000, 3),
+        "band": freq_to_band(khz * 1000),
+        "comment": rest[:40],
+    }
+
+
 def _dx_loop():
-    interval = int(cfg("poll_dx_sec", 120))
+    """Stream live spots from a DX-cluster telnet node. dxsummit.fi's HTTP API
+    is unreachable from the cloud host (connections just time out), so we read
+    a real cluster instead — those are built for automated clients and don't
+    block datacenter IPs. Host/port default to a public node and can be
+    overridden via config (dx_cluster_host/port) or env (DX_CLUSTER_HOST/PORT)."""
+    host = os.environ.get("DX_CLUSTER_HOST") or cfg("dx_cluster_host", "dxc.nc7j.com")
+    port = int(os.environ.get("DX_CLUSTER_PORT") or cfg("dx_cluster_port", 7373))
+    mycall = (cfg("callsign", "W4GGJ") or "W4GGJ").upper()
+    spots = []
     while True:
+        sk = None
         try:
-            raw = _get("https://www.dxsummit.fi/api/v1/spots?limit=25")
-            try:
-                spots = json.loads(raw)
-            except (json.JSONDecodeError, ValueError):
-                # Cloudflare challenge / HTML error page instead of JSON — log a
-                # snippet so the cause is visible in the Render logs.
-                body = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
-                print(f"[dx] non-JSON response ({len(body)}B): {body[:140]!r}")
-                spots = []
-            if not isinstance(spots, list):
-                spots = []
-            out = []
-            for s in spots[:16]:
-                fq = float(s.get("frequency", 0) or 0)
-                out.append({
-                    "dx": s.get("dx_call", ""), "spotter": s.get("spotter_call", ""),
-                    "freq": round(fq / 1000, 3), "band": freq_to_band(fq * 1000),
-                    "comment": (s.get("comment", "") or "")[:40],
-                })
-            with _lock:
-                STATE["dx"] = out
-            if out:
-                print(f"[dx] {len(out)} spots")
-        except urllib.error.HTTPError as e:
-            print(f"[dx] HTTP {e.code} from dxsummit.fi")
+            sk = socket.create_connection((host, port), timeout=20)
+            sk.settimeout(180)
+            print(f"[dx] connected to cluster {host}:{port} as {mycall}")
+            buf = b""
+            logged_in = False
+            while True:
+                try:
+                    data = sk.recv(4096)
+                except socket.timeout:
+                    print("[dx] cluster idle 180s — reconnecting")
+                    break
+                if not data:
+                    print("[dx] cluster closed the connection")
+                    break
+                buf += data
+                if not logged_in:
+                    low = buf.lower()
+                    if b"login:" in low or b"call:" in low or b"enter your call" in low:
+                        sk.sendall((mycall + "\r\n").encode())
+                        logged_in = True
+                        buf = b""
+                        continue
+                while b"\n" in buf:
+                    raw, buf = buf.split(b"\n", 1)
+                    line = raw.decode("utf-8", "replace").rstrip("\r")
+                    if not line.startswith("DX de"):
+                        continue
+                    spot = _parse_dx_spot(line)
+                    if spot:
+                        spots.insert(0, spot)
+                        del spots[16:]
+                        with _lock:
+                            STATE["dx"] = list(spots)
         except Exception as e:
-            print(f"[dx] {e}")
-        time.sleep(interval)
+            print(f"[dx] cluster {host}:{port} — {e}")
+        finally:
+            if sk:
+                try:
+                    sk.close()
+                except Exception:
+                    pass
+        time.sleep(15)   # backoff before reconnect
 
 
 # ── Boot ──────────────────────────────────────────────────────────────────────
