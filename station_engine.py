@@ -735,6 +735,17 @@ def ingest(sections):
         _last_ingest = time.time()
 
 
+def ingest_status():
+    """Freshness of the last home-agent push — for the cloud /api/health probe."""
+    with _lock:
+        age = (time.time() - _last_ingest) if _last_ingest else None
+        return {
+            "last_ingest": _last_ingest or None,
+            "age_sec": round(age, 1) if age is not None else None,
+            "radio_online": STATE["radio"]["online"],
+        }
+
+
 def _ingest_watchdog():
     """Mark the radio offline if the home agent stops reporting."""
     while True:

@@ -58,7 +58,12 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json; charset=utf-8")
             return
         if path == "/api/health":
-            self._send(200, json.dumps({"ok": True, "role": ROLE}),
+            health = {"ok": True, "role": ROLE}
+            if ROLE == "cloud":
+                # Surface agent-link freshness so "site not updating" is diagnosable
+                # from the public URL: age_sec null/large => no telemetry arriving.
+                health["ingest"] = engine.ingest_status()
+            self._send(200, json.dumps(health),
                        "application/json; charset=utf-8")
             return
 
