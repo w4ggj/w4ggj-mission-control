@@ -87,20 +87,33 @@ differs — it drives ISS range and Best-DX distance.
 
 ---
 
-## Optional: SSB / CW frequency via Hamlib
+## Optional: live rig telemetry via Hamlib (power / SWR / ALC / meters)
 
-For non-FT8 operating (WSJT-X isn't broadcasting then), frequency can come from **Hamlib
-`rigctld`** running on the **station PC**:
+Enable **Hamlib `rigctld`** to stream live data straight from the rig — actual TX power,
+SWR, ALC, S-meter, drain voltage/current, temperature — instead of a hardcoded power number.
+The dashboard **probes the rig on connect** and shows only what it reports (each rig/backend
+supports a different subset), logging the list to the agent console.
 
-```
-rigctld -m 1023 -r COM? -s 4800        # 1023 = Yaesu FT-450 in Hamlib
-```
-```json
-"rigctld_enabled": true,
-"rigctld_host": "192.168.x.x",         // the STATION PC's IP
-"rigctld_port": 4532
-```
-(Confirm your FT-450's COM port and baud; `rigctl --list | findstr FT-450`.)
+**One CAT port, shared.** The FT-450 has a single CAT port, and WSJT-X already uses it — so
+run `rigctld` as the hub and point WSJT-X at it (nothing else can open the port directly):
+
+1. On the **station PC**, start rigctld against the radio:
+   ```
+   rigctld -m 1023 -r COM? -s 38400      # 1023 = Yaesu FT-450; confirm your COM port & baud
+   ```
+2. In **WSJT-X → Settings → Radio**: set **Rig = `Hamlib NET rigctl`**, **Network Server =
+   `127.0.0.1:4532`**. Now WSJT-X and the dashboard both talk through rigctld.
+3. In `station.config.json`:
+   ```json
+   "rigctld_enabled": true,
+   "rigctld_host": "127.0.0.1",
+   "rigctld_port": 4532,
+   "rig_max_power_watts": 100
+   ```
+
+Restart the agent — the console prints `[rigctld] rig reports meters: [...]`, and the live
+`POWER` value + a meter strip (SWR/ALC/S/…) appear on both the public page and the shack
+display. If your FT-450 only exposes some meters over CAT, you'll simply see the ones it does.
 
 ---
 

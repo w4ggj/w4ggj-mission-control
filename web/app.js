@@ -47,6 +47,17 @@ function fmtTime(t) {
   if (!t || t.length < 4) return '—';
   return `${t.slice(0, 2)}:${t.slice(2, 4)}`;
 }
+function renderMeters(el, meters) {
+  if (!el) return;
+  const keys = meters ? Object.keys(meters) : [];
+  if (!keys.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = keys.map(k => {
+    let color = 'var(--cyan)';
+    if (k === 'SWR') { const n = parseFloat(meters[k]); if (n > 2) color = 'var(--red)'; else if (n > 1.5) color = 'var(--amber)'; }
+    return `<div class="chip">${k} <b style="color:${color}">${meters[k]}</b></div>`;
+  }).join('');
+}
 
 /* ── render ───────────────────────────────────────────────── */
 function render(s) {
@@ -102,6 +113,13 @@ function render(s) {
   } else {
     $('chip-dx-wrap').style.display = 'none';
   }
+
+  // live power from the rig (Hamlib) when available, else the static rating
+  const pwr = (r.power_w != null) ? r.power_w : id.power_watts;
+  $('f-pwr').textContent = (pwr != null ? pwr : '—') + ' W';
+
+  // live rig meters (SWR / ALC / S / Vd / … — whatever the radio reports)
+  renderMeters($('chip-meters'), r.meters);
 
   // ── S-meter ──
   $('s-val').textContent = sig.s_meter || '—';
