@@ -42,6 +42,7 @@ def load_agent_cfg():
     # env overrides
     cfg["cloud_url"] = os.environ.get("CLOUD_URL", cfg.get("cloud_url", "")).rstrip("/")
     cfg["ingest_token"] = os.environ.get("INGEST_TOKEN", cfg.get("ingest_token", ""))
+    cfg["qrz_api_key"] = os.environ.get("QRZ_API_KEY", cfg.get("qrz_api_key", "")).strip()
     return cfg
 
 
@@ -63,9 +64,21 @@ def main():
               "(or CLOUD_URL / INGEST_TOKEN env vars). Exiting.")
         return
 
-    # Home-only data: WSJT-X UDP + ADIF. No public pollers (the cloud runs those).
-    engine.start_engine(enable_wsjtx=True, enable_adif=True, enable_pollers=False)
+    # QRZ logbook API key (read-only pulls). When present, QRZ is the log source
+    # of truth — full history + all new contacts, any mode — so the local WSJT-X
+    # ADIF watcher is turned off to avoid it fighting QRZ for the log panel.
+    qrz_key = cfg.get("qrz_api_key", "")
+    if qrz_key:
+        os.environ["QRZ_API_KEY"] = qrz_key
+
+    # Home-only data: WSJT-X UDP (live radio/decodes) + log. No public pollers
+    # (the cloud runs those). Log comes from QRZ when a key is set, else the
+    # local WSJT-X ADIF.
+    engine.start_engine(enable_wsjtx=True, enable_adif=not qrz_key,
+                        enable_pollers=False, enable_qrz=bool(qrz_key))
     print(f"[agent] pushing telemetry to {url} every {PUSH_INTERVAL:.0f}s")
+    print("[agent] logbook source: " + ("QRZ Logbook API (read-only)" if qrz_key
+                                        else "WSJT-X ADIF / live UDP"))
 
     fails = 0
     last_beat = 0.0

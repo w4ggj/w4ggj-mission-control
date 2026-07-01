@@ -53,20 +53,33 @@ logged QSOs stream across. (JTDX is identical. If WSJT-X uses a *multicast* addr
 put it in `wsjtx_multicast_group` in the config.)
 
 ### 2. Logbook — pick one
-The full QSO history lives on the **station PC**, so there are two ways to feed the log panel:
+The log panel (totals, DXCC, Best-DX, recent contacts) can be fed three ways:
 
-- **(A) Full history** — share the station PC's WSJT-X folder, then set the UNC path in
+- **(A) QRZ Logbook API — recommended (full history + all new contacts).** If QRZ is your
+  master logbook, the agent pulls your **entire** QRZ log on a timer — every band and mode,
+  the complete back-history plus each new QSO your apps upload — no ADIF files, no
+  re-exporting. It is **read-only**: the dashboard only ever *fetches*, never writes.
+  Put your key (QRZ → your logbook → Settings → API) in `agent.config.json` (gitignored, so
+  it stays on your PC):
+  ```json
+  "qrz_api_key": "XXXX-XXXX-XXXX-XXXX"
+  ```
+  (or set the `QRZ_API_KEY` env var). Refresh interval is `qrz_sync_sec` in
+  `station.config.json` (default 300 s). When a key is set, QRZ overrides the ADIF options
+  below. Live WSJT-X radio/decodes still stream in real time; new digital QSOs land in the
+  log at the next QRZ refresh.
+
+- **(B) Local ADIF file** — share the station PC's WSJT-X folder and set the UNC path in
   `station.config.json`:
   ```json
   "adif_log_path": "\\\\STATION-PC\\Users\\NAME\\AppData\\Local\\WSJT-X\\wsjtx_log.adi"
   ```
-  Counters, Best-DX and the DX wall then reflect your real totals, updating within seconds
-  of each new QSO.
+  Reflects that file's contents (WSJT-X = your digital contacts only), updating within
+  seconds of each new QSO.
 
-- **(B) Live session only (zero setup)** — leave `adif_log_path` blank and
-  `adif_autodetect: false` (the defaults). The dashboard builds the log **straight from the
-  WSJT-X UDP "QSO Logged" packets** — every contact you log appears instantly. Totals cover
-  the current session (no back-history).
+- **(C) Live session only (zero setup)** — leave `adif_log_path` blank and
+  `adif_autodetect: false`. The dashboard builds the log **straight from the WSJT-X UDP
+  "QSO Logged" packets** — every contact you log appears instantly, current session only.
 
 ### 3. Your grid
 `station.config.json` ships with `"grid": "EL87"` (Tampa Bay). Fix it if your 6-char grid

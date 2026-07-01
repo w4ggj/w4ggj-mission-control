@@ -1,5 +1,8 @@
 {
   "_info": "Copy this file to agent.config.json (which is gitignored) and fill in your values.",
   "cloud_url": "https://w4ggj-mission-control.onrender.com",
-  "ingest_token": "CHANGE-ME-to-the-same-long-random-string-you-set-as-INGEST_TOKEN-on-Render"
+  "ingest_token": "CHANGE-ME-to-the-same-long-random-string-you-set-as-INGEST_TOKEN-on-Render",
+
+  "_qrz_note": "OPTIONAL. Your QRZ Logbook API key (QRZ > your logbook > Settings > API). READ-ONLY: the dashboard only pulls your log, it never writes. When set, QRZ becomes the logbook source (full history + all new contacts, any mode) and the local WSJT-X ADIF is ignored. Leave blank to use the WSJT-X log instead. This file is gitignored, so the key stays on this PC.",
+  "qrz_api_key": ""
 }
