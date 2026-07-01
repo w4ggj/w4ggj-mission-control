@@ -9,20 +9,46 @@ let lastQsoTs = 0;
 let seenDecodeTs = 0;
 let firstLoad = true;
 
-/* ── live S-meter: ease toward the reading and gently wander in between, so the
-   needle always moves like a real meter instead of stepping every decode ──── */
-let sMeterTarget = 0, sMeterShown = 0, sMeterNoise = 0, sMeterNoiseAt = 0;
+/* ── analog swinging-needle S-meter ──────────────────────── */
+/* SVG rectangular meter face (S1…+40) built once; a light spring swings the
+   needle toward each reading with a gentle overshoot + wander, like a real
+   mechanical meter instead of a bar that steps every decode. */
+let sMeterTarget = 0, sMeterShown = 0, sMeterVel = 0, sMeterNoise = 0, sMeterNoiseAt = 0;
+function buildSMeter(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const cx = 120, cy = 108, R = 96, rMaj = 80, rMin = 88, lr = 105;
+  const labels = ['S1', 'S3', 'S6', 'S9', '+20', '+40'];
+  const ang = (pct) => (pct / 100 * 108 - 54) * Math.PI / 180;   // -54°…+54°
+  let s = '<svg viewBox="0 0 240 120" preserveAspectRatio="xMidYMid meet">';
+  s += '<rect class="s-face" x="2" y="2" width="236" height="116" rx="9"/>';
+  for (let i = 0; i <= 20; i++) {
+    const a = ang(i * 5), sn = Math.sin(a), cs = Math.cos(a);
+    const maj = i % 4 === 0, red = i * 5 >= 80, ri = maj ? rMaj : rMin;
+    s += `<line x1="${(cx+ri*sn).toFixed(1)}" y1="${(cy-ri*cs).toFixed(1)}" x2="${(cx+R*sn).toFixed(1)}" y2="${(cy-R*cs).toFixed(1)}" class="s-tick${maj?' maj':''}${red?' red':''}"/>`;
+  }
+  for (let j = 0; j < labels.length; j++) {
+    const a = ang(j * 20);
+    s += `<text x="${(cx+lr*Math.sin(a)).toFixed(1)}" y="${(cy-lr*Math.cos(a)+3.5).toFixed(1)}" class="s-lab${j*20>=80?' red':''}">${labels[j]}</text>`;
+  }
+  s += '<line id="s-needle" class="s-needle" x1="120" y1="108" x2="120" y2="22"/>';
+  s += '<circle class="s-hub" cx="120" cy="108" r="5"/></svg>';
+  el.innerHTML = s;
+}
 function animateSMeter(ts) {
-  if (ts - sMeterNoiseAt > 170) {
+  if (ts - sMeterNoiseAt > 200) {
     sMeterNoiseAt = ts;
-    sMeterNoise = sMeterTarget > 0 ? (Math.random() - 0.5) * 5 : 0;
+    sMeterNoise = sMeterTarget > 0 ? (Math.random() - 0.5) * 4 : 0;
   }
   const goal = Math.max(0, Math.min(100, sMeterTarget + sMeterNoise));
-  sMeterShown += (goal - sMeterShown) * 0.12;
-  const m = $('s-mask');
-  if (m) m.style.left = sMeterShown.toFixed(2) + '%';
+  sMeterVel += (goal - sMeterShown) * 0.09;   // spring toward the reading
+  sMeterVel *= 0.78;                            // damping → gentle overshoot
+  sMeterShown = Math.max(-4, Math.min(104, sMeterShown + sMeterVel));
+  const n = document.getElementById('s-needle');
+  if (n) n.setAttribute('transform', 'rotate(' + (sMeterShown / 100 * 108 - 54).toFixed(2) + ' 120 108)');
   requestAnimationFrame(animateSMeter);
 }
+buildSMeter('s-gauge');
 requestAnimationFrame(animateSMeter);
 
 /* ── UTC clock (local tick, no server round-trip) ─────────── */

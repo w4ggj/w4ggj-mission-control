@@ -146,11 +146,17 @@ body::before {
 
 /* ── S-meter ─────────────────────────────────────────────── */
 .a-sig { justify-content: center; }
-.s-val { font-family: var(--stencil); font-size: clamp(32px, 3.7vw, 84px); text-align: center; line-height: 1; color: var(--cyan); }
-.s-bar { height: clamp(12px, 1.6vh, 24px); border-radius: 8px; margin: clamp(9px, 1.3vh, 18px) 0 6px; position: relative;
-  background: linear-gradient(90deg, #24d97a, #a9e34b 40%, var(--amber) 68%, var(--red)); }
-.s-bar .mask { position: absolute; inset: 0 0 0 auto; left: 0; background: rgba(5,7,13,0.82); border-radius: 8px; }
-.s-scale { display: flex; justify-content: space-between; font-family: var(--mono); font-size: clamp(8px, 0.68vw, 13px); color: var(--muted); }
+.s-gauge { display: flex; justify-content: center; }
+.s-gauge svg { width: auto; height: clamp(110px, 19vh, 220px); max-width: 100%; display: block; }
+.s-face { fill: rgba(4,6,11,0.55); stroke: var(--border-strong); stroke-width: 1; }
+.s-tick { stroke: var(--muted); stroke-width: 1.3; }
+.s-tick.maj { stroke: var(--cyan-dim); stroke-width: 2.3; }
+.s-tick.red { stroke: var(--red); }
+.s-lab { fill: var(--cyan-dim); font-family: var(--mono); font-size: 11px; text-anchor: middle; }
+.s-lab.red { fill: var(--red); }
+.s-needle { stroke: var(--amber); stroke-width: 2.6; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(246,168,33,0.55)); }
+.s-hub { fill: #ffcf7a; stroke: #0b111b; stroke-width: 2; }
+.s-val { font-family: var(--stencil); font-size: clamp(26px, 3vw, 58px); text-align: center; line-height: 1; color: var(--cyan); margin-top: clamp(4px, 0.8vh, 10px); }
 .s-foot { display: flex; justify-content: space-between; margin-top: clamp(9px, 1.2vh, 18px); }
 .s-foot .l { font-family: var(--mono); font-size: clamp(9px, 0.72vw, 14px); letter-spacing: 2px; color: var(--muted); }
 .s-foot .v { font-family: var(--mono); font-size: clamp(15px, 1.45vw, 26px); }
