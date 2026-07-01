@@ -56,7 +56,7 @@
   "qrz_sync_sec": 300,
 
   "_section_rigctld": "=== HAMLIB rigctld (optional — live power / SWR / ALC / meters) ===",
-  "rigctld_enabled": false,
+  "rigctld_enabled": true,
   "rigctld_host": "127.0.0.1",
   "rigctld_port": 4532,
   "rig_max_power_watts": 100,
@@ -64,11 +64,11 @@
   "_rigctld_note": "Set rigctld_enabled=true to stream live rig telemetry (actual power, SWR, ALC, S-meter, drain V/I, temp — whatever your rig reports; probed on connect and logged). The agent reads from rigctld here; point rigctld at whatever controls the radio. (A) HRD/WSJT-X->HRD: 'rigctld -m <HRD model, see: rigctl --list | findstr /i deluxe> -r 127.0.0.1:7809' (HRD allows multiple clients, runs alongside WSJT-X). (B) WSJT-X drives the rig directly: 'rigctld -m 1023 -r COMx -s 38400' (1023=FT-450) then set WSJT-X Rig='Hamlib NET rigctl' server 127.0.0.1:4532. Freq/mode already come via WSJT-X UDP regardless. rig_max_power_watts converts the rig's 0-100% power level to watts.",
 
   "_section_hrd": "=== HAM RADIO DELUXE (direct — live power / gains / SWR flag) ===",
-  "hrd_enabled": false,
+  "hrd_enabled": true,
   "hrd_host": "127.0.0.1",
   "hrd_port": 7809,
   "hrd_poll_sec": 1.0,
-  "_hrd_note": "For stations where HRD controls the rig and WSJT-X points at HRD (so rigctld can't reach the CAT port). Set hrd_enabled=true to read live data straight from HRD's TCP interface — real RF power, gains (Mic/RF/NR), and a High-SWR warning appear on both dashboards. No Hamlib needed; HRD must be running with Rig Control connected. HRD does NOT expose the numeric PWR/SWR/ALC bar values, so those aren't available. Use hrd_enabled OR rigctld_enabled, not both. rig_max_power_watts scales the 0-100 power level to watts.",
+  "_hrd_note": "For stations where HRD controls the rig and WSJT-X points at HRD (so rigctld can't reach the CAT port). Set hrd_enabled=true to read live data straight from HRD's TCP interface — real RF power, gains (Mic/RF/NR), and a High-SWR warning appear on both dashboards. No Hamlib needed; HRD must be running with Rig Control connected. HRD does NOT expose the numeric PWR/SWR/ALC bar values. To also get those numeric meters (S-meter/SWR/ALC), run rigctld alongside HRD and set rigctld_enabled=true as well — the two complement each other (HRD = power/gains/High-SWR flag, rigctld = numeric meters). Both are enabled here for the W4GGJ station. rig_max_power_watts scales the 0-100 power level to watts.",
 
   "_section_polling": "=== POLL INTERVALS (seconds) ===",
   "poll_solar_sec": 600,
