@@ -43,7 +43,7 @@
   "rigctld_port": 4532,
   "rig_max_power_watts": 100,
   "rigctld_poll_sec": 1.0,
-  "_rigctld_note": "Set rigctld_enabled=true to stream live rig telemetry (actual power, SWR, ALC, S-meter, drain V/I, temp — whatever your rig reports; probed on connect and logged). FT-450 = Hamlib model 1023. IMPORTANT: the FT-450 has ONE CAT port, so run rigctld as the shared hub and point WSJT-X at it — start 'rigctld -m 1023 -r COMx -s 38400' on the station PC, then in WSJT-X Settings>Radio set Rig='Hamlib NET rigctl', Network Server=127.0.0.1:4532. rig_max_power_watts converts the rig's 0-100% power level to watts.",
+  "_rigctld_note": "Set rigctld_enabled=true to stream live rig telemetry (actual power, SWR, ALC, S-meter, drain V/I, temp — whatever your rig reports; probed on connect and logged). The agent reads from rigctld here; point rigctld at whatever controls the radio. (A) HRD/WSJT-X->HRD: 'rigctld -m <HRD model, see: rigctl --list | findstr /i deluxe> -r 127.0.0.1:7809' (HRD allows multiple clients, runs alongside WSJT-X). (B) WSJT-X drives the rig directly: 'rigctld -m 1023 -r COMx -s 38400' (1023=FT-450) then set WSJT-X Rig='Hamlib NET rigctl' server 127.0.0.1:4532. Freq/mode already come via WSJT-X UDP regardless. rig_max_power_watts converts the rig's 0-100% power level to watts.",
 
   "_section_polling": "=== POLL INTERVALS (seconds) ===",
   "poll_solar_sec": 600,
