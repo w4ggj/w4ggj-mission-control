@@ -1,0 +1,20 @@
+# Render.com blueprint — public cloud dashboard (relay target).
+# Deploy: New + > Blueprint, point at this repo. Render reads this file.
+services:
+  - type: web
+    name: w4ggj-mission-control
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: ROLE
+        value: cloud
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      # Shared secret so only YOUR home agent can push telemetry.
+      # Set this to a long random string in the Render dashboard (kept out of git),
+      # and put the SAME value in agent.config.json on your home PC.
+      - key: INGEST_TOKEN
+        sync: false

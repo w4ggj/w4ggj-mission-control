@@ -1,0 +1,21 @@
+# ── secrets / local-only config (NEVER commit) ──
+agent.config.json
+*.env
+.env
+
+# ── TLS certs ──
+*.pem
+
+# ── python ──
+__pycache__/
+*.pyc
+*.pyo
+
+# ── editor / os ──
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ── local claude settings ──
+.claude/settings.local.json

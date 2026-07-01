@@ -1,0 +1,5 @@
+{
+  "_info": "Copy this file to agent.config.json (which is gitignored) and fill in your values.",
+  "cloud_url": "https://w4ggj-mission-control.onrender.com",
+  "ingest_token": "CHANGE-ME-to-the-same-long-random-string-you-set-as-INGEST_TOKEN-on-Render"
+}

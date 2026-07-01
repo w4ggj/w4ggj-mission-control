@@ -1,0 +1,2 @@
+# W4GGJ Mission Control has NO third-party dependencies — Python standard library only.
+# This file exists so Render detects a Python service. Nothing to install.

@@ -1,0 +1,47 @@
+{
+  "_info": "W4GGJ Mission Control — HOME STATION (Yaesu FT-450). This dashboard runs on a SEPARATE PC from the station PC where WSJT-X runs.",
+
+  "_section_identity": "=== STATION IDENTITY ===",
+  "callsign": "W4GGJ",
+  "operator": "Joe Leone",
+  "grid": "EL87",
+  "qth": "Tampa Bay, FL",
+  "rig": "Yaesu FT-450",
+  "power_watts": 100,
+  "modes": "FT8 · FT4 · SSB · CW",
+  "digital": "FT8 · FT4",
+  "tagline": "Always further. Always connected.",
+  "subtitle": "HOME STATION · HF · FT8",
+
+  "_section_web": "=== WEB SERVER (this dashboard PC) ===",
+  "web_port": 8770,
+  "bind_host": "0.0.0.0",
+  "tailscale_ip": "",
+  "use_https": true,
+
+  "_section_wsjtx": "=== WSJT-X / JTDX UDP — broadcast FROM the station PC ===",
+  "_wsjtx_note": "WSJT-X runs on the station PC. Set its UDP Server (Settings > Reporting) to THIS dashboard PC's IP, port 2237. This PC binds 0.0.0.0:2237 to receive it. Already working if decodes show up.",
+  "wsjtx_enabled": true,
+  "wsjtx_udp_host": "0.0.0.0",
+  "wsjtx_udp_port": 2237,
+  "wsjtx_multicast_group": "",
+  "_wsjtx_multicast_note": "Only if WSJT-X uses a multicast address (e.g. 239.255.0.0). Leave blank for normal unicast to this PC's IP.",
+
+  "_section_adif": "=== LOGBOOK (ADIF) — full history lives on the STATION PC ===",
+  "adif_autodetect": false,
+  "adif_log_path": "",
+  "_adif_note": "Cross-PC options: (A) share the station PC's WSJT-X folder and put its UNC path here, e.g. \\\\STATION-PC\\Users\\NAME\\AppData\\Local\\WSJT-X\\wsjtx_log.adi  -> FULL history. (B) leave blank with adif_autodetect=false -> the dashboard builds a LIVE log straight from WSJT-X UDP as you log each QSO (this session).",
+  "extra_adif_paths": [],
+
+  "_section_rigctld": "=== HAMLIB rigctld (optional CAT for SSB/CW freq) ===",
+  "rigctld_enabled": false,
+  "rigctld_host": "127.0.0.1",
+  "rigctld_port": 4532,
+  "_rigctld_note": "Yaesu FT-450 = Hamlib model 1023. rigctld would run on the STATION PC; set rigctld_host to that PC's IP. Not needed for FT8 (WSJT-X already gives frequency).",
+
+  "_section_polling": "=== POLL INTERVALS (seconds) ===",
+  "poll_solar_sec": 600,
+  "poll_pota_sec": 60,
+  "poll_iss_sec": 10,
+  "poll_dx_sec": 120
+}

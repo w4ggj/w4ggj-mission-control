@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4GGJ · Mission Control</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ── Top bar ─────────────────────────────────────────────── -->
+<div class="topbar">
+  <div class="brand">
+    <div class="logo">📡</div>
+    <div>
+      <div class="call" id="tb-call">W4GGJ</div>
+      <div class="sub" id="tb-sub">HOME STATION · HF · FT8</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="clock"><span id="utc">--:--:--</span><small>UTC</small></div>
+  <div class="pill" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-txt">CONNECTING</span></div>
+  <div class="pill" id="onair"><span class="dot" id="air-dot"></span><span id="air-txt">OFFLINE</span></div>
+</div>
+
+<div class="ticker"><span id="ticker">W4GGJ · MISSION CONTROL · LIVE STATION TELEMETRY · YAESU FT-450 · FT8 · HF · TAMPA BAY EL87 · ONE PYTHON ENGINE ·</span></div>
+
+<div class="wrap">
+
+  <!-- ── Hero ──────────────────────────────────────────────── -->
+  <div class="hero">
+    <div>
+      <div class="kick">LIVE DX STATION · MISSION CONTROL</div>
+      <h1 id="hero-call">W4GGJ</h1>
+      <div class="tag"><b id="tag-a">Always further.</b> <span id="tag-b">Always connected.</span></div>
+      <div class="desc" id="hero-desc">
+        Self-hosted amateur radio station. A single Python engine reads the live rig and
+        logbook in real time — every frequency change, every decode, every logged QSO —
+        and streams it here. What you see is what's happening at the bench, right now.
+      </div>
+      <div class="facts">
+        <div class="f"><div class="lbl">LOCATION</div><div class="v" id="f-qth">—</div></div>
+        <div class="f"><div class="lbl">GRID</div><div class="v cyan" id="f-grid">—</div></div>
+        <div class="f"><div class="lbl">RIG</div><div class="v" id="f-rig">—</div></div>
+        <div class="f"><div class="lbl">POWER</div><div class="v amber" id="f-pwr">—</div></div>
+        <div class="f"><div class="lbl">QSOs LOGGED</div><div class="v cyan" id="f-qsos">—</div></div>
+      </div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><div class="lbl">UTC TIME</div><div class="big" id="q-utc">--:--</div></div>
+      <div class="card"><div class="lbl">SOLAR FLUX</div><div class="big amber" id="q-sfi">—</div></div>
+      <div class="card"><div class="lbl">KP INDEX</div><div class="big" id="q-kp">—</div></div>
+      <div class="card"><div class="lbl">ISS RANGE</div><div class="big green" id="q-iss">—</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 00 · LIVE RADIO ────────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 00 · LIVE RADIO</div>
+    <div class="sec-title">On The Air Now</div>
+    <div class="sec-desc">Live from the X6200 via WSJT-X. As the dial moves, this moves.</div>
+    <div class="sec-rule"></div>
+    <div class="radio-main">
+      <div class="card freq-readout">
+        <div class="hz"><span id="freq">--.---</span></div>
+        <div class="unit">MHz · RX FREQUENCY</div>
+        <div class="chips">
+          <div class="chip" id="chip-band">— m</div>
+          <div class="chip" id="chip-mode">—</div>
+          <div class="chip" id="chip-txrx">STANDBY</div>
+          <div class="chip" id="chip-src">NO SIGNAL</div>
+        </div>
+        <div class="chips" id="chip-dx-wrap" style="display:none">
+          <div class="chip amber" id="chip-dx">WORKING —</div>
+        </div>
+      </div>
+      <div class="card smeter">
+        <div class="lbl">📶 SIGNAL · LAST DECODE</div>
+        <div class="s-val cyan" id="s-val">—</div>
+        <div class="s-bar"><div class="mask" id="s-mask" style="left:0"></div></div>
+        <div class="s-scale"><span>S1</span><span>S3</span><span>S6</span><span>S9</span><span>+20</span><span>+40</span></div>
+        <div class="grid g2" style="margin-top:14px">
+          <div><div class="lbl">SNR</div><div class="mono cyan" id="s-snr">—</div></div>
+          <div><div class="lbl">MODE</div><div class="mono" id="s-mode">—</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 01 · LIVE DECODES ─────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 01 · LIVE DECODES</div>
+    <div class="sec-title">Waterfall Feed</div>
+    <div class="sec-desc">Every signal WSJT-X decodes, the moment it lands. CQ calls in amber.</div>
+    <div class="sec-rule"></div>
+    <div class="card">
+      <div class="feed-row" style="border-bottom:1px solid var(--border-strong)">
+        <div class="t">TIME</div><div class="snr">SNR</div><div>ΔF</div><div class="msg">MESSAGE</div>
+      </div>
+      <div class="feed" id="feed"><div class="empty">Waiting for WSJT-X decodes…</div></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 02 · PROPAGATION ──────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 02 · PROPAGATION</div>
+    <div class="sec-title">HF Conditions</div>
+    <div class="sec-desc">Live space weather from HamQSL — solar flux, geomagnetic activity, band openings.</div>
+    <div class="sec-rule"></div>
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="card"><div class="lbl">SOLAR FLUX</div><div class="big amber" id="p-sfi">—</div></div>
+      <div class="card"><div class="lbl">K INDEX</div><div class="big" id="p-kp">—</div></div>
+      <div class="card"><div class="lbl">SUNSPOTS</div><div class="big" id="p-ssn">—</div></div>
+      <div class="card"><div class="lbl">SOLAR WIND</div><div class="big cyan" id="p-wind">—</div></div>
+    </div>
+    <div class="grid auto" id="bands"></div>
+  </div>
+
+  <!-- ── SECTION 03 · LIVE LOG & DXCC ──────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 03 · LOGBOOK</div>
+    <div class="sec-title">Live Log &amp; DX Wall</div>
+    <div class="sec-desc">Straight from your ADIF log. A new contact appears here the instant it's saved.</div>
+    <div class="sec-rule"></div>
+    <div class="grid auto" style="margin-bottom:16px">
+      <div class="card"><div class="lbl">TOTAL QSOs</div><div class="big cyan" id="l-total">—</div></div>
+      <div class="card"><div class="lbl">UNIQUE CALLS</div><div class="big cyan" id="l-calls">—</div></div>
+      <div class="card"><div class="lbl">COUNTRIES *</div><div class="big cyan" id="l-ctry">—</div></div>
+      <div class="card"><div class="lbl">BANDS</div><div class="big cyan" id="l-bands">—</div></div>
+      <div class="card"><div class="lbl">MODES</div><div class="big cyan" id="l-modes">—</div></div>
+      <div class="card"><div class="lbl">BEST DX</div><div class="big" id="l-dx" style="font-size:22px">—</div></div>
+    </div>
+    <div class="card">
+      <div class="lbl" style="margin-bottom:10px">📖 RECENT CONTACTS</div>
+      <table class="log-table">
+        <thead><tr><th>DATE</th><th>TIME</th><th>CALL</th><th>BAND</th><th>MODE</th><th>RST</th><th>COUNTRY</th></tr></thead>
+        <tbody id="log-body"><tr><td colspan="7" class="empty">No logbook loaded yet…</td></tr></tbody>
+      </table>
+      <div class="mono" style="font-size:10px;color:var(--muted);margin-top:10px">* Countries = approximate DXCC by callsign prefix. Source: <span id="l-path">—</span></div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 04 · FIELD OPS (POTA) ─────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 04 · FIELD OPS</div>
+    <div class="sec-title">Live POTA Spots</div>
+    <div class="sec-desc">Parks-On-The-Air activators on the air worldwide, right now.</div>
+    <div class="sec-rule"></div>
+    <div class="card"><div id="pota"><div class="empty">Loading POTA spots…</div></div></div>
+  </div>
+
+  <!-- ── SECTION 05 · SPACE ────────────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 05 · SPACE TRACKERS</div>
+    <div class="sec-title">ISS &amp; Satellites</div>
+    <div class="sec-desc">Live position of the ISS (ZARYA) and range from your grid.</div>
+    <div class="sec-rule"></div>
+    <div class="grid g2">
+      <div class="card">
+        <div class="lbl">🛰 ISS LIVE POSITION</div>
+        <div class="big" id="iss-pos" style="margin-top:6px">—</div>
+        <div class="mono cyan" id="iss-range" style="margin-top:6px">—</div>
+        <div class="grid g2" style="margin-top:14px">
+          <div><div class="lbl">ALTITUDE</div><div class="mono" id="iss-alt">—</div></div>
+          <div><div class="lbl">VELOCITY</div><div class="mono" id="iss-vel">—</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="lbl">📻 DX CLUSTER · RECENT SPOTS</div>
+        <div id="dx" style="margin-top:8px"><div class="empty">Loading DX spots…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">W4GGJ · MISSION CONTROL · ONE PYTHON ENGINE · LIVE STATION TELEMETRY</div>
+
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
