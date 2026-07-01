@@ -50,7 +50,7 @@ function renderMeters(el, meters) {
   el.style.display = 'flex';
   el.innerHTML = keys.map(k => {
     let color = 'var(--cyan)';
-    if (k === 'SWR') { const n = parseFloat(meters[k]); if (n > 2) color = 'var(--red)'; else if (n > 1.5) color = 'var(--amber)'; }
+    if (k === 'SWR') { const n = parseFloat(meters[k]); if (meters[k] === 'HIGH' || n > 2) color = 'var(--red)'; else if (n > 1.5) color = 'var(--amber)'; }
     return `<div class="chip">${esc(k)} <b style="color:${color}">${esc(String(meters[k]))}</b></div>`;
   }).join('');
 }
