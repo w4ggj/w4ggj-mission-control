@@ -142,6 +142,7 @@ body::before {
 .chip.tx { color: var(--red); border-color: rgba(255, 77, 77, 0.55); }
 .chip.rx { color: var(--green); border-color: rgba(36, 217, 122, 0.4); }
 .chip.amber { color: var(--amber); border-color: rgba(246, 168, 33, 0.45); }
+.chip.digi { color: var(--amber); border-color: rgba(246, 168, 33, 0.45); background: rgba(246, 168, 33, 0.06); }
 .dxline { margin-top: clamp(9px, 1.1vh, 18px); font-family: var(--mono); font-size: clamp(13px, 1.25vw, 24px); color: var(--amber); letter-spacing: 1px; min-height: 1em; }
 
 /* ── S-meter ─────────────────────────────────────────────── */
