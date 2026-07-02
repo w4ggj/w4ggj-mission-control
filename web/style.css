@@ -343,3 +343,39 @@ body.voice-mode #sec-psk { opacity: .45; filter: saturate(.55); transition: opac
   background: rgba(246, 168, 33, 0.10); border: 1px solid rgba(246, 168, 33, 0.35);
   color: var(--amber-soft); font-size: 11px; letter-spacing: 1px;
 }
+
+/* ── Activity · calendar + charts ─────────────────────────── */
+.act-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.cal-wrap { overflow-x: auto; padding-bottom: 4px; }
+#cal { width: 100%; min-width: 720px; height: auto; display: block; }
+.cal-cell { stroke: rgba(0,0,0,0.25); stroke-width: 0.5; transition: fill .3s; }
+.cal-cell.l0 { fill: #10262e; }
+.cal-cell.l1 { fill: rgba(63,224,207,0.22); }
+.cal-cell.l2 { fill: rgba(63,224,207,0.42); }
+.cal-cell.l3 { fill: rgba(63,224,207,0.66); }
+.cal-cell.l4 { fill: #3fe0cf; }
+.cal-mon, .cal-dow { fill: var(--muted); font-family: var(--mono); font-size: 9px; }
+.cal-dow { text-anchor: start; }
+.cal-legend {
+  display: flex; align-items: center; gap: 5px; margin-top: 10px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px;
+}
+.cal-key { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+.cal-key.l0 { background: #10262e; }
+.cal-key.l1 { background: rgba(63,224,207,0.22); }
+.cal-key.l2 { background: rgba(63,224,207,0.42); }
+.cal-key.l3 { background: rgba(63,224,207,0.66); }
+.cal-key.l4 { background: #3fe0cf; }
+.cal-peak { margin-left: auto; color: var(--cyan-dim); }
+.chart-wrap { margin-top: 8px; }
+#hrs, #yrs { width: 100%; height: auto; display: block; }
+.act-bar { fill: rgba(63,224,207,0.5); transition: fill .3s; }
+.act-bar.peak { fill: var(--cyan); filter: drop-shadow(0 0 3px rgba(63,224,207,0.6)); }
+.act-ax { fill: var(--muted); font-family: var(--mono); font-size: 9px; text-anchor: middle; }
+.act-val { fill: var(--cyan-dim); font-family: var(--mono); font-size: 9px; text-anchor: middle; }
+.bar-list { margin-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+.bar-row { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12px; }
+.bar-lab { width: 52px; color: var(--text); letter-spacing: 1px; flex: none; }
+.bar-track { flex: 1; height: 10px; background: rgba(90,200,210,0.08); border-radius: 5px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; background: linear-gradient(90deg, rgba(63,224,207,0.55), var(--cyan)); border-radius: 5px; }
+.bar-val { width: 56px; text-align: right; color: var(--cyan-dim); flex: none; }
