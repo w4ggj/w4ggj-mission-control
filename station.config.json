@@ -70,6 +70,13 @@
   "hrd_poll_sec": 1.0,
   "_hrd_note": "For stations where HRD controls the rig and WSJT-X points at HRD (so rigctld can't reach the CAT port). Set hrd_enabled=true to read live data straight from HRD's TCP interface — real RF power, gains (Mic/RF/NR), and a High-SWR warning appear on both dashboards. No Hamlib needed; HRD must be running with Rig Control connected. HRD does NOT expose the numeric PWR/SWR/ALC bar values. To also get those numeric meters (S-meter/SWR/ALC), run rigctld alongside HRD and set rigctld_enabled=true as well — the two complement each other (HRD = power/gains/High-SWR flag, rigctld = numeric meters). Both are enabled here for the W4GGJ station. rig_max_power_watts scales the 0-100 power level to watts.",
 
+  "_section_flrig": "=== FLRIG (rig control app that DOES expose the meters) ===",
+  "flrig_enabled": false,
+  "flrig_host": "127.0.0.1",
+  "flrig_port": 12345,
+  "flrig_poll_sec": 1.0,
+  "_flrig_note": "Flrig controls the FT-450 and publishes frequency, mode, PTT and — unlike HRD — the REAL S-meter, power-out and SWR over XML-RPC (default port 12345). Run Flrig as your rig controller instead of HRD, then set flrig_enabled=true and turn hrd_enabled + rigctld_enabled OFF (one rig source at a time). In Flrig enable meter polling (Config > Setup > Polling: check s-meter/power/swr). Point WSJT-X at Rig='FLRig FLRig' (127.0.0.1). Gives a live S-meter on voice AND digital.",
+
   "_section_polling": "=== POLL INTERVALS (seconds) ===",
   "poll_solar_sec": 600,
   "poll_pota_sec": 60,

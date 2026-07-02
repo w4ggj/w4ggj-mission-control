@@ -240,11 +240,12 @@ WSJTX_MAGIC = 0xADBCCBDA
 # Used to drive the log panel when no ADIF file is reachable (cross-PC case).
 _session_qsos = []
 _file_log_active = False
-# True while rigctld (Hamlib daemon) or HRD is feeding the rig's real mode/freq.
-# When either is set, WSJT-X's "mode" (its FT8/FT4 submode) is published as the
-# separate digital_mode instead of overwriting the radio mode chip.
+# True while rigctld / HRD / Flrig is feeding the rig's real mode/freq. When any
+# is set, WSJT-X's "mode" (its FT8/FT4 submode) is published as the separate
+# digital_mode instead of overwriting the radio mode chip.
 _rigctld_online = False
 _hrd_online = False
+_flrig_online = False
 
 
 def _qso_key(call, date, hhmm, band, mode):
@@ -425,9 +426,9 @@ def _handle_wsjtx(data):
                 "dx_call": dx_call, "report": report,
                 "last_seen": time.time(),
             }
-            # The rig's real mode comes from rigctld/HRD (LSB/USB/CW). Only fall
-            # back to the WSJT-X submode for the mode chip when neither is feeding.
-            if not (_rigctld_online or _hrd_online):
+            # The rig's real mode comes from rigctld/HRD/Flrig (LSB/USB/CW). Only
+            # fall back to the WSJT-X submode for the mode chip when none feed it.
+            if not (_rigctld_online or _hrd_online or _flrig_online):
                 upd["mode"] = mode or "—"
             _set("radio", upd)
 
@@ -452,8 +453,13 @@ def _handle_wsjtx(data):
                 # signal panel = strongest of the last few decodes
                 recent = STATE["decodes"][:8]
                 best = max((d["snr"] for d in recent), default=None)
-                label, pct = _snr_to_smeter(best)
-                STATE["signal"] = {"snr": best, "s_meter": label, "s_pct": pct}
+                STATE["signal"]["snr"] = best
+                # Flrig's real hardware S-meter owns the needle when present;
+                # otherwise derive it from the decode SNR.
+                if not _flrig_online:
+                    label, pct = _snr_to_smeter(best)
+                    STATE["signal"]["s_meter"] = label
+                    STATE["signal"]["s_pct"] = pct
 
         elif mtype == 5:        # QSO Logged
             _skip_qdatetime(r)          # Date/Time OFF
@@ -1233,9 +1239,108 @@ def _hrd_loop():
             time.sleep(8)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  Flrig — XML-RPC client (rig control app that DOES expose the meters)
+# ══════════════════════════════════════════════════════════════════════════════
+# Flrig owns the FT-450's COM port and publishes frequency, mode, PTT and — unlike
+# HRD — the actual S-meter, power-out and SWR over XML-RPC (port 12345). Use this
+# when Flrig is your rig controller instead of HRD/rigctld. Read-only.
+
+def _flrig_num(v):
+    """First number out of a Flrig XML-RPC value (str/int/list)."""
+    if isinstance(v, (list, tuple)):
+        v = v[0] if v else ""
+    m = re.match(r"-?\d+(?:\.\d+)?", str(v).strip())
+    return float(m.group()) if m else None
+
+
+def _flrig_smeter(v):
+    """Map Flrig's 0-100 S-meter reading to a gauge %/S-label. Flrig's scale is
+    treated as ~ the gauge scale (S1..S9 across 0-60%, S9+ above); calibrate the
+    constants if it reads high/low against the rig's own meter."""
+    pct = _flrig_num(v)
+    if pct is None:
+        return "—", 0
+    pct = max(0.0, min(100.0, pct))
+    if pct >= 60:
+        over = round((pct - 60) / 40 * 40)          # 60% -> S9, 100% -> S9+40
+        label = "S9" if over < 3 else f"S9+{min(40, over):02d}"
+    else:
+        s = round(1 + pct / 60 * 8)                  # 0% -> S1, 60% -> S9
+        label = f"S{max(1, min(9, s))}"
+    return label, round(pct)
+
+
+def _flrig_loop():
+    global _flrig_online
+    import xmlrpc.client
+    host = cfg("flrig_host", "127.0.0.1")
+    port = int(cfg("flrig_port", 12345))
+    interval = float(cfg("flrig_poll_sec", 1.0))
+    max_w = float(cfg("rig_max_power_watts", 100))
+    url = f"http://{host}:{port}/"
+    while True:
+        try:
+            rig = xmlrpc.client.ServerProxy(url).rig
+            name = str(rig.get_xcvr())
+            mp = _flrig_num(rig.get_maxpwr())
+            if mp:
+                max_w = mp
+            print(f"[flrig] connected {url} — rig {name!r}, max {max_w:.0f}W")
+            _flrig_online = True
+            while True:
+                freq = str(rig.get_vfo()).strip()
+                hz = int(freq) if freq.isdigit() else 0
+                mode = str(rig.get_mode()).strip().upper()
+                tx = _flrig_num(rig.get_ptt()) == 1
+                sm = rig.get_smeter()                    # 0-100, drives the needle
+                sunits = str(rig.get_Sunits()).replace(" ", "").upper()  # "S0".."S9"
+                pset = _flrig_num(rig.get_power())       # power-knob setting (watts)
+
+                meters = {}
+                if tx:
+                    po = _flrig_num(rig.get_pwrmeter())
+                    if po and po > 0:
+                        meters["PO"] = f"{round(po / 100 * max_w)} W"
+                    swr = _flrig_num(rig.get_SWR())      # real SWR ratio, e.g. 1.3
+                    if swr and swr >= 1.0:
+                        meters["SWR"] = f"{swr:.1f}"
+
+                _, pct = _flrig_smeter(sm)
+                lbl = sunits if re.match(r"^S\d", sunits) else _flrig_smeter(sm)[0]
+                with _lock:
+                    rd = STATE["radio"]
+                    rd["cat_online"] = True
+                    rd["meters"] = meters
+                    if pset is not None:
+                        rd["power_w"] = round(pset)
+                    if mode:
+                        rd["mode"] = mode
+                    if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
+                        rd.update({
+                            "online": True, "source": "Flrig",
+                            "dial_hz": hz, "rx_hz": hz,
+                            "freq_mhz": round(hz / 1e6, 6),
+                            "band": freq_to_band(hz),
+                            "tx": tx, "last_seen": time.time(),
+                        })
+                    # Real hardware S-meter drives the needle on RX (voice AND
+                    # digital). On TX the meter reads 0, so hold the last value.
+                    if not tx:
+                        STATE["signal"]["s_meter"] = lbl
+                        STATE["signal"]["s_pct"] = pct
+                time.sleep(interval)
+        except Exception as e:
+            _flrig_online = False
+            with _lock:
+                STATE["radio"]["cat_online"] = False
+            print(f"[flrig] link error ({e}) — retry in 8s")
+            time.sleep(8)
+
+
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
                  enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None,
-                 enable_hrd=None):
+                 enable_hrd=None, enable_flrig=None):
     STATE["engine_started"] = time.time()
     if enable_wsjtx is None:
         enable_wsjtx = cfg("wsjtx_enabled", True)
@@ -1246,6 +1351,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
             or cfg("qrz_enabled", False)
     if enable_hrd is None:
         enable_hrd = cfg("hrd_enabled", False)
+    if enable_flrig is None:
+        enable_flrig = cfg("flrig_enabled", False)
 
     threads = []
     if enable_wsjtx:
@@ -1254,6 +1361,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         threads.append(("rigctld", _rigctld_loop))
     if enable_hrd:
         threads.append(("hrd", _hrd_loop))
+    if enable_flrig:
+        threads.append(("flrig", _flrig_loop))
     if enable_adif:
         threads.append(("adif", _adif_loop))
     if enable_qrz:
