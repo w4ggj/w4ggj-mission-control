@@ -132,13 +132,19 @@ function render(s) {
   // frequency hero
   $('freq').textContent = fmtFreq(r.freq_mhz);
   $('chip-band').textContent = r.band || '—';
-  $('chip-mode').textContent = r.mode || '—';
+  $('chip-mode').textContent = r.mode || '—';   // rig mode (LSB/USB/CW) from CAT
+  const isWsjtx = (r.source || '') === 'WSJT-X';
+  const digi = $('chip-digi');
+  if (digi) {
+    if (isWsjtx && r.digital_mode) { digi.style.display = ''; digi.textContent = r.digital_mode; }
+    else { digi.style.display = 'none'; }
+  }
   const txrx = $('chip-txrx');
   if (r.tx) { txrx.textContent = 'TRANSMIT'; txrx.className = 'chip tx'; }
   else if (r.online) { txrx.textContent = 'RECEIVE'; txrx.className = 'chip rx'; }
   else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
-  $('dxline').textContent = r.dx_call ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
+  $('dxline').textContent = (isWsjtx && r.dx_call) ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
 
   // live rig meters (power + SWR / ALC / S / … whatever Hamlib reports)
   const meters = {};
@@ -151,7 +157,7 @@ function render(s) {
   sMeterTarget = sig.s_pct || 0;   // animator eases the bar toward this
   $('s-snr').textContent = sig.snr == null ? '—' : (sig.snr > 0 ? '+' : '') + sig.snr + ' dB';
   $('s-snr').style.color = snrColor(sig.snr);
-  $('s-mode').textContent = r.mode || '—';
+  $('s-mode').textContent = (isWsjtx && r.digital_mode) ? r.digital_mode : (r.mode || '—');
 
   // decode feed
   const feed = $('feed');

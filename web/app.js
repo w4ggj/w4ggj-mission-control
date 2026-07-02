@@ -195,15 +195,21 @@ function render(s) {
   else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
 
-  // Voice/analog vs digital. WSJT-X being the active source (or a digital mode)
-  // means the decode/PSKReporter panels are live; on voice/CW/AM/FM they idle,
-  // so dim them and flag it. The S-meter still swings (rig RX strength).
-  const modeU = (r.mode || '').toUpperCase();
+  // chip-mode shows the rig's real mode (LSB/USB/CW) from CAT. The WSJT-X
+  // submode (FT8/FT4) rides alongside in its own chip, only while WSJT-X runs.
   const isWsjtx = (r.source || '') === 'WSJT-X';
-  const digitalMode = isWsjtx || /FT8|FT4|JT|Q65|MSK|FST4|WSPR|JS8/.test(modeU);
-  document.body.classList.toggle('voice-mode', !!r.online && !digitalMode);
+  const digi = $('chip-digi');
+  if (digi) {
+    if (isWsjtx && r.digital_mode) { digi.style.display = ''; digi.textContent = r.digital_mode; }
+    else { digi.style.display = 'none'; }
+  }
 
-  if (r.dx_call) {
+  // Voice/analog vs digital: WSJT-X being the active source means a digital
+  // session (decodes + PSKReporter live); otherwise dim those and flag it. The
+  // S-meter still swings from the rig's RX strength either way.
+  document.body.classList.toggle('voice-mode', !!r.online && !isWsjtx);
+
+  if (isWsjtx && r.dx_call) {
     $('chip-dx-wrap').style.display = 'flex';
     $('chip-dx').textContent = 'WORKING ' + r.dx_call + (r.report ? ' · ' + r.report : '');
   } else {
@@ -227,7 +233,7 @@ function render(s) {
   sMeterTarget = sig.s_pct || 0;   // animator eases the bar toward this
   $('s-snr').textContent = sig.snr == null ? '—' : (sig.snr > 0 ? '+' : '') + sig.snr + ' dB';
   $('s-snr').style.color = snrColor(sig.snr);
-  $('s-mode').textContent = r.mode || '—';
+  $('s-mode').textContent = (isWsjtx && r.digital_mode) ? r.digital_mode : (r.mode || '—');
 
   // ── decode feed ──
   const feed = $('feed');

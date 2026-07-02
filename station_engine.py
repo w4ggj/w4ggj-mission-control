@@ -84,7 +84,8 @@ STATE = {
         "rx_hz": 0,             # dial + rx audio offset
         "freq_mhz": 0.0,
         "band": "—",
-        "mode": "—",
+        "mode": "—",            # the rig's actual mode (LSB/USB/CW/…) from CAT
+        "digital_mode": "",     # WSJT-X submode (FT8/FT4/…) when it's running
         "tx": False,
         "decoding": False,
         "dx_call": "",
@@ -239,6 +240,10 @@ WSJTX_MAGIC = 0xADBCCBDA
 # Used to drive the log panel when no ADIF file is reachable (cross-PC case).
 _session_qsos = []
 _file_log_active = False
+# True while the Hamlib rigctld daemon is connected and feeding the rig's real
+# mode/freq. When set, WSJT-X's "mode" (its FT8/FT4 submode) is published as the
+# separate digital_mode instead of overwriting the radio mode chip.
+_rigctld_online = False
 
 
 def _qso_key(call, date, hhmm, band, mode):
@@ -410,14 +415,20 @@ def _handle_wsjtx(data):
             transmitting = r.boolean()
             decoding = r.boolean()
             rx_df = r.u32()
-            _set("radio", {
+            upd = {
                 "online": True, "source": "WSJT-X", "dial_hz": dial,
                 "rx_hz": dial + rx_df, "freq_mhz": round(dial / 1e6, 6),
-                "band": freq_to_band(dial), "mode": mode or "—",
+                "band": freq_to_band(dial),
+                "digital_mode": mode or "",     # WSJT-X submode (FT8/FT4/…)
                 "tx": transmitting, "decoding": decoding,
                 "dx_call": dx_call, "report": report,
                 "last_seen": time.time(),
-            })
+            }
+            # The rig's real mode comes from rigctld (LSB/USB/CW). Only fall back
+            # to the WSJT-X submode for the mode chip when rigctld isn't feeding.
+            if not _rigctld_online:
+                upd["mode"] = mode or "—"
+            _set("radio", upd)
 
         elif mtype == 2:        # Decode
             r.boolean()         # new
@@ -518,6 +529,7 @@ def _rigctld_level(sock, name):
 
 
 def _rigctld_loop():
+    global _rigctld_online
     host = cfg("rigctld_host", "127.0.0.1")
     port = int(cfg("rigctld_port", 4532))
     max_w = float(cfg("rig_max_power_watts", 100))
@@ -571,19 +583,25 @@ def _rigctld_loop():
                             if lvl == "STRENGTH":
                                 strength_db = v
 
+                    _rigctld_online = True
                     with _lock:
                         rd = STATE["radio"]
                         rd["cat_online"] = True
                         rd["power_w"] = set_w if set_w is not None else po
                         rd["meters"] = meters
-                        # WSJT-X drives freq/mode/tx when it's actively feeding us;
+                        # The rig's real mode always comes from CAT, even while
+                        # WSJT-X owns freq/tx — so the mode chip shows LSB/USB/CW
+                        # and WSJT-X's FT8/FT4 rides alongside as digital_mode.
+                        if mode:
+                            rd["mode"] = mode
+                        # WSJT-X drives freq/tx when it's actively feeding us;
                         # otherwise rigctld does. Meters flow either way.
                         if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
                             rd.update({
                                 "online": True, "source": "rigctld",
                                 "dial_hz": hz, "rx_hz": hz,
                                 "freq_mhz": round(hz / 1e6, 6),
-                                "band": freq_to_band(hz), "mode": mode or "—",
+                                "band": freq_to_band(hz),
                                 "tx": tx, "last_seen": time.time(),
                             })
                             # Drive the analog S-meter from the rig's RX signal
@@ -594,6 +612,7 @@ def _rigctld_loop():
                                 STATE["signal"] = {"snr": None, "s_meter": lbl, "s_pct": spct}
                     time.sleep(interval)
         except Exception:
+            _rigctld_online = False
             with _lock:
                 STATE["radio"]["cat_online"] = False
             time.sleep(8)
