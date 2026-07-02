@@ -379,3 +379,28 @@ body.voice-mode #sec-psk { opacity: .45; filter: saturate(.55); transition: opac
 .bar-track { flex: 1; height: 10px; background: rgba(90,200,210,0.08); border-radius: 5px; overflow: hidden; }
 .bar-fill { display: block; height: 100%; background: linear-gradient(90deg, rgba(63,224,207,0.55), var(--cyan)); border-radius: 5px; }
 .bar-val { width: 56px; text-align: right; color: var(--cyan-dim); flex: none; }
+
+/* ── Station Records ribbon (top of page) ─────────────────── */
+.records-bar {
+  display: flex; align-items: stretch; margin: 26px 0 4px;
+  background: linear-gradient(180deg, rgba(13,19,29,0.9), rgba(9,13,20,0.9));
+  border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  overflow-x: auto; position: relative;
+}
+.records-bar::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), var(--amber), transparent);
+  opacity: 0.65; border-radius: 14px 14px 0 0;
+}
+.rec {
+  flex: 1 0 auto; min-width: 118px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 5px; padding: 16px 16px; text-align: center;
+  border-left: 1px solid var(--border);
+}
+.rec:first-child { border-left: 0; }
+.rec-ico { font-size: 17px; line-height: 1; filter: grayscale(0.1); }
+.rec-v { font-family: var(--stencil); font-size: 26px; line-height: 1; color: var(--text); white-space: nowrap; }
+.rec-l { font-family: var(--mono); font-size: 9px; letter-spacing: 1.4px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 640px) { .rec { min-width: 108px; padding: 14px 13px; } .rec-v { font-size: 22px; } }

@@ -30,7 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -130,6 +130,17 @@ STATE = {
         "by_year": {},      # {"YYYY": count} all-time
         "updated": 0,
     },
+    # station records / milestones (from the log) — the top-of-page ribbon
+    "records": {
+        "first_qso": "",                                   # YYYYMMDD
+        "years_on_air": 0,
+        "most_in_day": {"count": 0, "date": ""},
+        "longest_streak": {"days": 0, "start": "", "end": ""},
+        "newest_dxcc": {"country": "", "date": ""},
+        "busiest_band": {"band": "", "count": 0},
+        "busiest_hour": {"hour": None, "count": 0},
+        "updated": 0,
+    },
     # space weather / propagation
     "solar": {
         "sfi": "—", "a_index": "—", "k_index": "—", "sunspots": "—",
@@ -179,6 +190,31 @@ US_STATES = frozenset((
     "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
     "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
 ))
+
+
+def _longest_streak(day_keys):
+    """Longest run of consecutive calendar days that each have ≥1 QSO.
+    day_keys = iterable of 'YYYYMMDD' strings. Returns {days, start, end}."""
+    ords = []
+    for s in day_keys:
+        try:
+            ords.append((date(int(s[:4]), int(s[4:6]), int(s[6:8])).toordinal(), s))
+        except Exception:
+            pass
+    ords.sort()
+    if not ords:
+        return {"days": 0, "start": "", "end": ""}
+    best = {"days": 1, "start": ords[0][1], "end": ords[0][1]}
+    cur_len, cur_start, prev = 1, ords[0][1], ords[0][0]
+    for o, s in ords[1:]:
+        if o == prev + 1:
+            cur_len += 1
+        elif o != prev:            # o == prev would be a duplicate day; ignore
+            cur_len, cur_start = 1, s
+        if cur_len > best["days"]:
+            best = {"days": cur_len, "start": cur_start, "end": s}
+        prev = o
+    return best
 
 
 def freq_to_band(hz):
@@ -776,12 +812,16 @@ def _rebuild_log_from_session():
         "grids": len(grids),
         "updated": time.time(),
     })
-    daily, hours, by_year = {}, [0] * 24, {}
+    daily, hours, by_year, day_all, ctry_first = {}, [0] * 24, {}, {}, {}
     for q in _session_qsos:
         d = q.get("date") or ""
         if len(d) == 8 and d.isdigit():
             by_year[d[:4]] = by_year.get(d[:4], 0) + 1
             daily[d] = daily.get(d, 0) + 1
+            day_all[d] = day_all.get(d, 0) + 1
+            c = q.get("country") or ""
+            if c and (c not in ctry_first or d < ctry_first[c]):
+                ctry_first[c] = d
         t = q.get("time") or ""
         if len(t) >= 2 and t[:2].isdigit():
             hr = int(t[:2])
@@ -789,6 +829,27 @@ def _rebuild_log_from_session():
                 hours[hr] += 1
     STATE["activity"].update({
         "daily": daily, "hours": hours, "by_year": by_year, "updated": time.time(),
+    })
+    first_qso = min(day_all) if day_all else ""
+    mid_date = max(day_all, key=lambda k: day_all[k]) if day_all else ""
+    newest = max(ctry_first.items(), key=lambda kv: kv[1]) if ctry_first else ("", "")
+    bb = max(band_bd.items(), key=lambda kv: kv[1]) if band_bd else ("", 0)
+    bh = max(range(24), key=lambda h: hours[h]) if any(hours) else None
+    years = 0
+    if first_qso:
+        try:
+            fd = date(int(first_qso[:4]), int(first_qso[4:6]), int(first_qso[6:8]))
+            years = max(0, int((date.today() - fd).days / 365.25))
+        except Exception:
+            years = 0
+    STATE["records"].update({
+        "first_qso": first_qso, "years_on_air": years,
+        "most_in_day": {"count": (day_all[mid_date] if mid_date else 0), "date": mid_date},
+        "longest_streak": _longest_streak(day_all.keys()),
+        "newest_dxcc": {"country": newest[0], "date": newest[1]},
+        "busiest_band": {"band": bb[0], "count": bb[1]},
+        "busiest_hour": {"hour": bh, "count": (hours[bh] if bh is not None else 0)},
+        "updated": time.time(),
     })
 
 
@@ -806,6 +867,7 @@ def _apply_log_records(records, source_label):
     was = set()          # US states worked (any band) — Worked All States
     was_band = {}        # band -> set(state) for 5-band WAS progress
     daily, hours, by_year = {}, [0] * 24, {}   # activity heatmaps
+    day_all, ctry_first = {}, {}                # all-time: for records ribbon
     day_cutoff = (datetime.now(timezone.utc) - timedelta(days=400)).strftime("%Y%m%d")
     for r in records:
         call = (r.get("call") or "").upper()
@@ -837,8 +899,11 @@ def _apply_log_records(records, source_label):
         d = r.get("qso_date") or ""
         if len(d) == 8 and d.isdigit():
             by_year[d[:4]] = by_year.get(d[:4], 0) + 1
+            day_all[d] = day_all.get(d, 0) + 1
             if d >= day_cutoff:
                 daily[d] = daily.get(d, 0) + 1
+            if ctry and (ctry not in ctry_first or d < ctry_first[ctry]):
+                ctry_first[ctry] = d
         t = r.get("time_on") or ""
         if len(t) >= 2 and t[:2].isdigit():
             hr = int(t[:2])
@@ -911,6 +976,31 @@ def _apply_log_records(records, source_label):
         })
         STATE["activity"].update({
             "daily": daily, "hours": hours, "by_year": by_year,
+            "updated": time.time(),
+        })
+        # station records / milestones
+        first_qso = min(day_all) if day_all else ""
+        mid_date, mid_cnt = ("", 0)
+        if day_all:
+            mid_date = max(day_all, key=lambda k: day_all[k])
+            mid_cnt = day_all[mid_date]
+        newest = max(ctry_first.items(), key=lambda kv: kv[1]) if ctry_first else ("", "")
+        bb = max(band_bd.items(), key=lambda kv: kv[1]) if band_bd else ("", 0)
+        bh = max(range(24), key=lambda h: hours[h]) if any(hours) else None
+        years = 0
+        if first_qso:
+            try:
+                fd = date(int(first_qso[:4]), int(first_qso[4:6]), int(first_qso[6:8]))
+                years = max(0, int((date.today() - fd).days / 365.25))
+            except Exception:
+                years = 0
+        STATE["records"].update({
+            "first_qso": first_qso, "years_on_air": years,
+            "most_in_day": {"count": mid_cnt, "date": mid_date},
+            "longest_streak": _longest_streak(day_all.keys()),
+            "newest_dxcc": {"country": newest[0], "date": newest[1]},
+            "busiest_band": {"band": bb[0], "count": bb[1]},
+            "busiest_hour": {"hour": bh, "count": (hours[bh] if bh is not None else 0)},
             "updated": time.time(),
         })
         if len(records) > prev_total and prev_total > 0:
@@ -1260,7 +1350,7 @@ def _dx_loop():
 # In the Render/cloud role the radio/decodes/signal/log come from the home agent
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
-INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards", "activity")
+INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards", "activity", "records")
 
 
 def ingest(sections):

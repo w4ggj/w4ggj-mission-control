@@ -365,7 +365,34 @@ function render(s) {
   // ── activity (calendar / hours / year / band / mode) ──
   renderActivity(s.activity || {}, log);
 
+  // ── station records ribbon ──
+  renderRecords(s.records || {}, log, s.awards || {});
+
   firstLoad = false;
+}
+
+/* ── station records ribbon (top of page) ─────────────────── */
+function fmtDay(d) {                 // YYYYMMDD → "Mon D, YYYY"
+  if (!d || d.length < 8) return '';
+  return `${MONTHS[+d.slice(4, 6) - 1]} ${+d.slice(6, 8)}, ${d.slice(0, 4)}`;
+}
+function renderRecords(rec, log, aw) {
+  $('rec-total').textContent = log.total ? log.total.toLocaleString() : '—';
+  $('rec-years').textContent = rec.years_on_air || '—';
+  if (rec.first_qso) $('rec-years-l').textContent = `SINCE ${fmtDay(rec.first_qso).toUpperCase()}`;
+  $('rec-dxcc').textContent = (aw.dxcc || log.countries) || '—';
+  const wasCount = (aw.was && aw.was.count) || 0;
+  $('rec-states').textContent = wasCount ? `${wasCount}/50` : '—';
+  $('rec-grids').textContent = (aw.grids || log.grids) ? (aw.grids || log.grids).toLocaleString() : '—';
+  if (log.best_dx) {
+    $('rec-dx').textContent = Math.round(log.best_dx.km).toLocaleString() + ' km';
+    $('rec-dx-l').textContent = `FARTHEST · ${log.best_dx.call}`;
+  }
+  const mid = rec.most_in_day || {};
+  $('rec-day').textContent = mid.count || '—';
+  if (mid.date) $('rec-day-l').textContent = `BEST DAY · ${fmtDay(mid.date).replace(/, \d{4}$/, '')}`;
+  const ls = rec.longest_streak || {};
+  $('rec-streak').textContent = ls.days ? ls.days + (ls.days === 1 ? ' DAY' : ' DAYS') : '—';
 }
 
 /* ── activity: contribution calendar + hour/year/band/mode charts ── */
