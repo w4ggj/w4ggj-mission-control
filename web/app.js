@@ -362,7 +362,139 @@ function render(s) {
   // ── awards (WAS / DXCC / grids) ──
   renderAwards(s.awards || {});
 
+  // ── activity (calendar / hours / year / band / mode) ──
+  renderActivity(s.activity || {}, log);
+
   firstLoad = false;
+}
+
+/* ── activity: contribution calendar + hour/year/band/mode charts ── */
+const SVGNS = 'http://www.w3.org/2000/svg';
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function ymd(d) {
+  return '' + d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, '0') +
+    String(d.getUTCDate()).padStart(2, '0');
+}
+function svgEl(tag, attrs, txt) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (txt != null) n.textContent = txt;
+  return n;
+}
+function calLevel(c, t) {           // 0 empty, then quartile buckets 1..4
+  if (!c) return 0;
+  if (c <= t[0]) return 1;
+  if (c <= t[1]) return 2;
+  if (c <= t[2]) return 3;
+  return 4;
+}
+function renderActivity(act, log) {
+  buildCalendar(act.daily || {});
+  buildHours(act.hours || []);
+  buildYears(act.by_year || {});
+  buildBars('band-bars', log.band_breakdown || {}, true);
+  buildBars('mode-bars', log.mode_breakdown || {}, false);
+}
+function buildCalendar(daily) {
+  const svg = $('cal'); if (!svg) return;
+  const CELL = 11, GAP = 3, STEP = CELL + GAP, WEEKS = 53;
+  const padL = 30, padT = 16;
+  const today = new Date(); today.setUTCHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setUTCDate(start.getUTCDate() - ((WEEKS - 1) * 7 + today.getUTCDay()));
+  // gather counts in-window for quartile thresholds
+  const vals = [];
+  for (let i = 0; i < WEEKS * 7; i++) {
+    const d = new Date(start); d.setUTCDate(d.getUTCDate() + i);
+    if (d > today) break;
+    const c = daily[ymd(d)] || 0; if (c > 0) vals.push(c);
+  }
+  vals.sort((a, b) => a - b);
+  const q = (p) => vals.length ? vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] : 0;
+  const th = [q(0.25) || 1, q(0.5) || 2, q(0.75) || 3];
+  const W = padL + WEEKS * STEP, H = padT + 7 * STEP;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  let total = 0, peak = { c: 0, d: null }, lastMonth = -1;
+  for (let w = 0; w < WEEKS; w++) {
+    for (let dow = 0; dow < 7; dow++) {
+      const d = new Date(start); d.setUTCDate(d.getUTCDate() + w * 7 + dow);
+      if (d > today) continue;
+      const c = daily[ymd(d)] || 0; total += c;
+      if (c > peak.c) peak = { c, d: new Date(d) };
+      const rect = svgEl('rect', {
+        x: padL + w * STEP, y: padT + dow * STEP, width: CELL, height: CELL,
+        rx: 2, class: 'cal-cell l' + calLevel(c, th),
+      });
+      rect.appendChild(svgEl('title', {}, `${c} QSO${c === 1 ? '' : 's'} · ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`));
+      svg.appendChild(rect);
+      // month label once per month, on the column holding its first week —
+      // evenly ~4-5 columns apart, so no leading partial-month collision
+      if (dow === 0 && d.getUTCDate() <= 7 && d.getUTCMonth() !== lastMonth) {
+        lastMonth = d.getUTCMonth();
+        svg.appendChild(svgEl('text', { x: padL + w * STEP, y: 11, class: 'cal-mon' }, MONTHS[lastMonth]));
+      }
+    }
+  }
+  ['Mon', 'Wed', 'Fri'].forEach((lab, i) => {
+    svg.appendChild(svgEl('text', { x: 0, y: padT + (i * 2 + 1) * STEP + CELL - 2, class: 'cal-dow' }, lab));
+  });
+  $('cal-total').textContent = total.toLocaleString() + ' QSOs';
+  $('cal-peak').textContent = peak.d
+    ? `Best day: ${peak.c} on ${MONTHS[peak.d.getUTCMonth()]} ${peak.d.getUTCDate()}` : '';
+}
+function buildHours(hours) {
+  const svg = $('hrs'); if (!svg) return;
+  const W = 480, H = 170, padL = 8, padR = 8, padB = 20, padT = 16;
+  const max = Math.max(1, ...hours);
+  const peakH = hours.indexOf(max);
+  const bw = (W - padL - padR - 23 * 3) / 24;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = '';
+  const base = H - padB;
+  for (let h = 0; h < 24; h++) {
+    const v = hours[h] || 0, bh = v / max * (base - padT);
+    const x = padL + h * (bw + 3);
+    const r = svgEl('rect', {
+      x, y: base - bh, width: bw, height: Math.max(bh, 0.5), rx: 3,
+      class: 'act-bar' + (h === peakH ? ' peak' : ''),
+    });
+    r.appendChild(svgEl('title', {}, `${String(h).padStart(2, '0')}:00 UTC · ${v} QSOs`));
+    svg.appendChild(r);
+  }
+  [0, 6, 12, 18].forEach(h => {
+    svg.appendChild(svgEl('text', { x: padL + h * (bw + 3) + bw / 2, y: H - 6, class: 'act-ax' }, String(h).padStart(2, '0')));
+  });
+  $('hr-peak').textContent = max > 1 ? `· peak ${String(peakH).padStart(2, '0')}:00Z` : '';
+}
+function buildYears(byYear) {
+  const svg = $('yrs'); if (!svg) return;
+  const years = Object.keys(byYear).sort();
+  const W = 480, H = 170, padL = 8, padR = 8, padB = 20, padT = 18;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.innerHTML = '';
+  if (!years.length) return;
+  const max = Math.max(1, ...years.map(y => byYear[y]));
+  const base = H - padB, gap = 6;
+  const bw = (W - padL - padR - (years.length - 1) * gap) / years.length;
+  years.forEach((y, i) => {
+    const v = byYear[y], bh = v / max * (base - padT), x = padL + i * (bw + gap);
+    const r = svgEl('rect', { x, y: base - bh, width: bw, height: Math.max(bh, 0.5), rx: 3, class: 'act-bar' });
+    r.appendChild(svgEl('title', {}, `${y} · ${v} QSOs`));
+    svg.appendChild(r);
+    if (bw >= 22) svg.appendChild(svgEl('text', { x: x + bw / 2, y: H - 6, class: 'act-ax' }, "'" + y.slice(2)));
+    if (bw >= 22) svg.appendChild(svgEl('text', { x: x + bw / 2, y: base - bh - 4, class: 'act-val' }, v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v));
+  });
+}
+function buildBars(id, breakdown, bandOrder) {
+  const el = $(id); if (!el) return;
+  let entries = Object.entries(breakdown).filter(([, v]) => v > 0);
+  entries.sort((a, b) => b[1] - a[1]);
+  entries = entries.slice(0, 10);
+  const max = Math.max(1, ...entries.map(e => e[1]));
+  el.innerHTML = entries.map(([k, v]) =>
+    `<div class="bar-row"><span class="bar-lab">${k.toUpperCase()}</span>` +
+    `<span class="bar-track"><span class="bar-fill" style="width:${(v / max * 100).toFixed(1)}%"></span></span>` +
+    `<span class="bar-val">${v.toLocaleString()}</span></div>`
+  ).join('') || '<div class="empty">No data yet…</div>';
 }
 
 /* ── awards: Worked-All-States map + DXCC / grid tallies ──── */

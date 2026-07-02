@@ -30,7 +30,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -121,6 +121,13 @@ STATE = {
         "was_bands": {},                     # {band: worked-state count} for 5BWAS
         "dxcc": 0,                           # unique DXCC entities (≈ countries)
         "grids": 0,                          # unique Maidenhead fields
+        "updated": 0,
+    },
+    # QSO activity (from the log): calendar heatmap + hour/year histograms
+    "activity": {
+        "daily": {},        # {"YYYYMMDD": count} for ~the last 53 weeks
+        "hours": [0] * 24,  # all-time QSOs by UTC hour-of-day
+        "by_year": {},      # {"YYYY": count} all-time
         "updated": 0,
     },
     # space weather / propagation
@@ -769,6 +776,20 @@ def _rebuild_log_from_session():
         "grids": len(grids),
         "updated": time.time(),
     })
+    daily, hours, by_year = {}, [0] * 24, {}
+    for q in _session_qsos:
+        d = q.get("date") or ""
+        if len(d) == 8 and d.isdigit():
+            by_year[d[:4]] = by_year.get(d[:4], 0) + 1
+            daily[d] = daily.get(d, 0) + 1
+        t = q.get("time") or ""
+        if len(t) >= 2 and t[:2].isdigit():
+            hr = int(t[:2])
+            if 0 <= hr < 24:
+                hours[hr] += 1
+    STATE["activity"].update({
+        "daily": daily, "hours": hours, "by_year": by_year, "updated": time.time(),
+    })
 
 
 def _apply_log_records(records, source_label):
@@ -784,6 +805,8 @@ def _apply_log_records(records, source_label):
     reach = {}  # grid-field -> [lat, lon] for the all-time map glow
     was = set()          # US states worked (any band) — Worked All States
     was_band = {}        # band -> set(state) for 5-band WAS progress
+    daily, hours, by_year = {}, [0] * 24, {}   # activity heatmaps
+    day_cutoff = (datetime.now(timezone.utc) - timedelta(days=400)).strftime("%Y%m%d")
     for r in records:
         call = (r.get("call") or "").upper()
         band = (r.get("band") or "").lower()
@@ -811,6 +834,16 @@ def _apply_log_records(records, source_label):
             was.add(st)
             if band:
                 was_band.setdefault(band, set()).add(st)
+        d = r.get("qso_date") or ""
+        if len(d) == 8 and d.isdigit():
+            by_year[d[:4]] = by_year.get(d[:4], 0) + 1
+            if d >= day_cutoff:
+                daily[d] = daily.get(d, 0) + 1
+        t = r.get("time_on") or ""
+        if len(t) >= 2 and t[:2].isdigit():
+            hr = int(t[:2])
+            if 0 <= hr < 24:
+                hours[hr] += 1
         if my_ll and grid:
             km = haversine_km(my_ll, grid_to_latlon(grid))
             if km and (best is None or km > best["km"]):
@@ -874,6 +907,10 @@ def _apply_log_records(records, source_label):
             "was_bands": {b: len(s) for b, s in was_band.items()},
             "dxcc": len(countries),
             "grids": len(grids),
+            "updated": time.time(),
+        })
+        STATE["activity"].update({
+            "daily": daily, "hours": hours, "by_year": by_year,
             "updated": time.time(),
         })
         if len(records) > prev_total and prev_total > 0:
@@ -1223,7 +1260,7 @@ def _dx_loop():
 # In the Render/cloud role the radio/decodes/signal/log come from the home agent
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
-INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards")
+INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards", "activity")
 
 
 def ingest(sections):

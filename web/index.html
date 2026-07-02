@@ -248,9 +248,55 @@
     </div>
   </div>
 
-  <!-- ── SECTION 08 · PSKREPORTER ──────────────────────────── -->
+  <!-- ── SECTION 08 · ACTIVITY ─────────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 08 · ACTIVITY</div>
+    <div class="sec-title">Logging Rhythm</div>
+    <div class="sec-desc">Every QSO in the book, laid out in time — the last year day by day, the hours the band is alive, and how the station has grown.</div>
+    <div class="sec-rule"></div>
+
+    <div class="card">
+      <div class="act-head">
+        <div class="lbl">📆 CONTACTS · LAST 12 MONTHS</div>
+        <div class="mono cyan" id="cal-total">—</div>
+      </div>
+      <div class="cal-wrap">
+        <svg id="cal" role="img" aria-label="Contribution calendar of QSOs per day"></svg>
+      </div>
+      <div class="cal-legend">
+        <span>Less</span>
+        <i class="cal-key l0"></i><i class="cal-key l1"></i><i class="cal-key l2"></i><i class="cal-key l3"></i><i class="cal-key l4"></i>
+        <span>More</span>
+        <span class="cal-peak" id="cal-peak"></span>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card">
+        <div class="lbl">🕑 BY HOUR · UTC <span class="muted" id="hr-peak"></span></div>
+        <div class="chart-wrap"><svg id="hrs" role="img" aria-label="QSOs by UTC hour"></svg></div>
+      </div>
+      <div class="card">
+        <div class="lbl">📈 BY YEAR</div>
+        <div class="chart-wrap"><svg id="yrs" role="img" aria-label="QSOs by year"></svg></div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:14px">
+      <div class="card">
+        <div class="lbl">〰 BY BAND</div>
+        <div id="band-bars" class="bar-list"></div>
+      </div>
+      <div class="card">
+        <div class="lbl">◇ BY MODE</div>
+        <div id="mode-bars" class="bar-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 09 · PSKREPORTER ──────────────────────────── -->
   <div class="section" id="sec-psk">
-    <div class="sec-tag">SECTION 08 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
+    <div class="sec-tag">SECTION 09 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
     <div class="sec-title">PSKReporter Live Map</div>
     <div class="sec-desc">Where <b id="psk-call" class="cyan">W4GGJ</b> is being heard right now — live reception reports of signals we've transmitted, worldwide.</div>
     <div class="sec-rule"></div>
