@@ -69,7 +69,15 @@ setInterval(tickClock, 250);
 tickClock();
 
 /* ── helpers ─────────────────────────────────────────────── */
-function fmtFreq(mhz) { return mhz ? mhz.toFixed(3) : '--.---'; }
+function fmtFreq(mhz) {
+  // Ham-radio grouping MHz.kHz.10Hz (e.g. 7.208.98) — exact dial, not rounded.
+  if (!mhz) return '--.---.--';
+  const hz = Math.round(mhz * 1e6);
+  const M = Math.floor(hz / 1e6);
+  const k = Math.floor((hz % 1e6) / 1e3).toString().padStart(3, '0');
+  const h = Math.floor((hz % 1e3) / 10).toString().padStart(2, '0');
+  return `${M}.${k}.${h}`;
+}
 function fmtTime(t) { return (!t || t.length < 4) ? '—' : `${t.slice(0, 2)}:${t.slice(2, 4)}`; }
 function bandCls(cond) {
   const c = (cond || '').toLowerCase();
