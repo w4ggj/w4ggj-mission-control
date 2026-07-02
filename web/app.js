@@ -201,21 +201,26 @@ function render(s) {
   else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
 
-  // chip-mode shows the rig's real mode (LSB/USB/CW) from CAT. The WSJT-X
-  // submode (FT8/FT4) rides alongside in its own chip, only while WSJT-X runs.
-  const isWsjtx = (r.source || '') === 'WSJT-X';
+  // "In digital" is decided by the RIG mode (from CAT), NOT by whether WSJT-X is
+  // running — so you can leave WSJT-X open on SSB and it still reads as voice.
+  // The FT-450 reports digital as a data/USER sub-mode (USER-U, DATA, PKT…);
+  // with no CAT mode source the mode string is the WSJT-X submode itself.
+  const modeU = (r.mode || '').toUpperCase();
+  const inDigital = /FT8|FT4|JT|Q65|MSK|FST4|WSPR|JS8|USER|DATA|DIG|PKT|RTTY|FSK|-D\b/.test(modeU);
+
+  // chip-mode shows the rig's real mode (LSB/USB/CW). The WSJT-X submode
+  // (FT8/FT4) rides alongside in its own chip, only while actually in digital.
   const digi = $('chip-digi');
   if (digi) {
-    if (isWsjtx && r.digital_mode) { digi.style.display = ''; digi.textContent = r.digital_mode; }
+    if (inDigital && r.digital_mode) { digi.style.display = ''; digi.textContent = r.digital_mode; }
     else { digi.style.display = 'none'; }
   }
 
-  // Voice/analog vs digital: WSJT-X being the active source means a digital
-  // session (decodes + PSKReporter live); otherwise dim those and flag it. The
-  // S-meter still swings from the rig's RX strength either way.
-  document.body.classList.toggle('voice-mode', !!r.online && !isWsjtx);
+  // Voice vs digital: on voice/CW the decode + PSKReporter panels idle, so dim
+  // them and flag it. The S-meter still runs off the rig meter either way.
+  document.body.classList.toggle('voice-mode', !!r.online && !inDigital);
 
-  if (isWsjtx && r.dx_call) {
+  if (inDigital && r.dx_call) {
     $('chip-dx-wrap').style.display = 'flex';
     $('chip-dx').textContent = 'WORKING ' + r.dx_call + (r.report ? ' · ' + r.report : '');
   } else {
@@ -239,7 +244,7 @@ function render(s) {
   sMeterTarget = sig.s_pct || 0;   // animator eases the bar toward this
   $('s-snr').textContent = sig.snr == null ? '—' : (sig.snr > 0 ? '+' : '') + sig.snr + ' dB';
   $('s-snr').style.color = snrColor(sig.snr);
-  $('s-mode').textContent = (isWsjtx && r.digital_mode) ? r.digital_mode : (r.mode || '—');
+  $('s-mode').textContent = (inDigital && r.digital_mode) ? r.digital_mode : (r.mode || '—');
 
   // ── decode feed ──
   const feed = $('feed');
