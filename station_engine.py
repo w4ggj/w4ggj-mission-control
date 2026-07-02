@@ -875,7 +875,20 @@ def _qrz_fetch_records(api_key):
         if nxt <= after:   # cursor didn't advance -> that was the last/only batch
             break
         after = nxt
-    return records
+
+    # De-duplicate by QRZ log id (unique per record). QRZ's AFTERLOGID boundary
+    # is inclusive, so the last QSO of a page is re-returned on the next page —
+    # that echo shares the same logid and must be dropped, while genuinely
+    # distinct QSOs (different logids) are all kept, so the total matches QRZ.
+    seen, out = set(), []
+    for r in records:
+        lid = r.get("app_qrzlog_logid") or ""
+        if lid.isdigit():
+            if lid in seen:
+                continue
+            seen.add(lid)
+        out.append(r)
+    return out
 
 
 def _qrz_loop():
