@@ -223,4 +223,30 @@ body::before {
 }
 .psk-open:hover { border-color: var(--cyan); color: #eafffb; box-shadow: 0 0 18px rgba(63, 224, 207, 0.18); }
 
+/* ── Live station audio ─────────────────────────────────────── */
+.stream-wrap { margin-top: 18px; text-align: center; }
+.stream-btn {
+  display: inline-flex; align-items: center; gap: 11px;
+  font-family: var(--mono); font-size: 14px; letter-spacing: 2px;
+  color: var(--cyan); background: rgba(63, 224, 207, 0.08);
+  border: 1px solid var(--cyan-dim); border-radius: 10px;
+  padding: 11px 22px; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+.stream-btn:hover { background: rgba(63, 224, 207, 0.16); border-color: var(--cyan); box-shadow: 0 0 18px rgba(63, 224, 207, 0.18); }
+.stream-btn.playing { color: var(--green); border-color: rgba(36, 217, 122, 0.55); background: rgba(36, 217, 122, 0.10); box-shadow: 0 0 18px rgba(36, 217, 122, 0.16); }
+.stream-btn.loading { opacity: .75; cursor: progress; }
+.stream-btn.offline { color: var(--muted); border-color: var(--border); background: transparent; cursor: not-allowed; box-shadow: none; }
+.stream-ico { font-size: 13px; line-height: 1; }
+.stream-btn.playing .stream-ico { display: none; }
+.stream-eq { display: none; align-items: flex-end; gap: 2px; height: 14px; }
+.stream-btn.playing .stream-eq { display: inline-flex; }
+.stream-eq i { width: 3px; height: 14px; background: var(--green); border-radius: 1px; transform-origin: bottom; animation: eqbar .9s ease-in-out infinite; }
+.stream-eq i:nth-child(1) { animation-delay: 0s; }
+.stream-eq i:nth-child(2) { animation-delay: .18s; }
+.stream-eq i:nth-child(3) { animation-delay: .36s; }
+.stream-eq i:nth-child(4) { animation-delay: .54s; }
+@keyframes eqbar { 0%, 100% { transform: scaleY(.3); } 50% { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .stream-eq i { animation: none; transform: scaleY(.7); } }
+
 .foot { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--muted); text-align: center; }

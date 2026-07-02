@@ -63,6 +63,40 @@ function tickClock() {
 setInterval(tickClock, 250);
 tickClock();
 
+/* ── live station audio (MP3 stream) ──────────────────────── */
+(function initStream() {
+  const btn = $('stream-btn'), audio = $('stream-audio');
+  if (!btn || !audio) return;
+  const txt = btn.querySelector('.stream-txt');
+  function set(state, label) {
+    // .playing drives the icon↔equalizer swap in CSS
+    btn.classList.toggle('playing', state === 'playing');
+    btn.classList.toggle('loading', state === 'loading');
+    btn.classList.toggle('offline', state === 'offline');
+    txt.textContent = label || ({
+      playing: 'LIVE · ON AIR', loading: 'CONNECTING…',
+      offline: 'STREAM OFFLINE', idle: 'LISTEN LIVE',
+    }[state]);
+  }
+  btn.addEventListener('click', () => {
+    if (audio.paused) {
+      set('loading');
+      audio.load();                 // jump to the live edge each time
+      const p = audio.play();
+      if (p) p.catch(() => set('offline'));
+      // clear a stale "offline" if it starts within a few seconds
+      setTimeout(() => { if (!audio.paused) set('playing'); }, 300);
+    } else {
+      audio.pause();
+    }
+  });
+  audio.addEventListener('playing', () => set('playing'));
+  audio.addEventListener('waiting', () => { if (!audio.paused) set('loading'); });
+  audio.addEventListener('pause', () => set('idle'));
+  audio.addEventListener('error', () => set('offline'));
+  set('idle');
+})();
+
 /* ── helpers ──────────────────────────────────────────────── */
 function fmtFreq(mhz) {
   if (!mhz) return '--.---';
