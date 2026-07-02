@@ -240,10 +240,11 @@ WSJTX_MAGIC = 0xADBCCBDA
 # Used to drive the log panel when no ADIF file is reachable (cross-PC case).
 _session_qsos = []
 _file_log_active = False
-# True while the Hamlib rigctld daemon is connected and feeding the rig's real
-# mode/freq. When set, WSJT-X's "mode" (its FT8/FT4 submode) is published as the
+# True while rigctld (Hamlib daemon) or HRD is feeding the rig's real mode/freq.
+# When either is set, WSJT-X's "mode" (its FT8/FT4 submode) is published as the
 # separate digital_mode instead of overwriting the radio mode chip.
 _rigctld_online = False
+_hrd_online = False
 
 
 def _qso_key(call, date, hhmm, band, mode):
@@ -424,9 +425,9 @@ def _handle_wsjtx(data):
                 "dx_call": dx_call, "report": report,
                 "last_seen": time.time(),
             }
-            # The rig's real mode comes from rigctld (LSB/USB/CW). Only fall back
-            # to the WSJT-X submode for the mode chip when rigctld isn't feeding.
-            if not _rigctld_online:
+            # The rig's real mode comes from rigctld/HRD (LSB/USB/CW). Only fall
+            # back to the WSJT-X submode for the mode chip when neither is feeding.
+            if not (_rigctld_online or _hrd_online):
                 upd["mode"] = mode or "—"
             _set("radio", upd)
 
@@ -1151,6 +1152,7 @@ def _hrd_num(resp):
 
 
 def _hrd_loop():
+    global _hrd_online
     host = cfg("hrd_host", "127.0.0.1")
     port = int(cfg("hrd_port", 7809))
     interval = float(cfg("hrd_poll_sec", 1.0))
@@ -1176,6 +1178,11 @@ def _hrd_loop():
                     _, rfg = _hrd_num(g(f"get slider-pos {rig} RF~gain"))
                     _, nr = _hrd_num(g(f"get slider-pos {rig} Noise~reduction"))
 
+                    # HRD exposes frequency + mode (but not the S-meter value).
+                    freq = g("get frequency").strip()
+                    hz = int(freq) if freq.lstrip("-").isdigit() else 0
+                    mode = g("get mode").strip().upper()
+
                     meters = {}
                     if swr_high:
                         meters["SWR"] = "HIGH"
@@ -1185,6 +1192,9 @@ def _hrd_loop():
                         meters["MIC"] = mic
                     if nr:
                         meters["NR"] = nr
+
+                    if mode:
+                        _hrd_online = True
                     with _lock:
                         rd = STATE["radio"]
                         rd["cat_online"] = True
@@ -1192,8 +1202,31 @@ def _hrd_loop():
                             # FT-450 RF power level (0..100) maps straight to watts
                             rd["power_w"] = round(pw / 100 * max_w)
                         rd["meters"] = meters
+                        # The rig's real mode always comes from HRD, even while
+                        # WSJT-X owns freq — mode chip shows LSB/USB/CW and the
+                        # FT8/FT4 submode rides alongside as digital_mode.
+                        if mode:
+                            rd["mode"] = mode
+                        # HRD drives freq/online when WSJT-X (and rigctld) aren't
+                        # feeding — so the panel stays live on voice with WSJT-X
+                        # closed. TX/mic-PTT isn't exposed, so assume RECEIVE.
+                        if (not _rigctld_online
+                                and (rd["source"] != "WSJT-X"
+                                     or time.time() - rd["last_seen"] > 10)):
+                            rd.update({
+                                "online": True, "source": "HRD",
+                                "dial_hz": hz, "rx_hz": hz,
+                                "freq_mhz": round(hz / 1e6, 6),
+                                "band": freq_to_band(hz),
+                                "tx": False, "last_seen": time.time(),
+                            })
+                            rd["dx_call"] = ""      # stale WSJT-X QSO target
+                            # HRD can't read the S-meter value — show no reading
+                            # rather than a frozen digital value from earlier.
+                            STATE["signal"] = {"snr": None, "s_meter": "—", "s_pct": 0}
                     time.sleep(interval)
         except Exception as e:
+            _hrd_online = False
             with _lock:
                 STATE["radio"]["cat_online"] = False
             print(f"[hrd] link error ({e}) — retry in 8s")
