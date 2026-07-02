@@ -95,6 +95,17 @@
           <div class="lbl" style="margin-bottom:8px">🎛 RIG TELEMETRY</div>
           <div class="chips" id="chip-meters"></div>
         </div>
+        <div class="stream-wrap">
+          <div class="lbl" style="margin-bottom:8px">🔊 STATION AUDIO</div>
+          <button id="stream-btn" class="stream-btn" type="button" aria-label="Play live station audio">
+            <span class="stream-ico">▶</span>
+            <span class="stream-eq"><i></i><i></i><i></i><i></i></span>
+            <span class="stream-txt">LISTEN LIVE</span>
+          </button>
+          <audio id="stream-audio" preload="none">
+            <source src="https://s6.myradiostream.com:49614/listen.mp3" type="audio/mpeg">
+          </audio>
+        </div>
       </div>
       <div class="card smeter">
         <div class="lbl">📶 SIGNAL · LAST DECODE</div>
