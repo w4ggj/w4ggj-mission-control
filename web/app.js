@@ -99,8 +99,14 @@ tickClock();
 
 /* ── helpers ──────────────────────────────────────────────── */
 function fmtFreq(mhz) {
-  if (!mhz) return '--.---';
-  return mhz.toFixed(3);
+  // Full ham-radio grouping MHz.kHz.Hz (e.g. 7.208.980) so the exact dial shows
+  // instead of a rounded 3-decimal value. Round frequencies read like 14.074.000.
+  if (!mhz) return '--.---.---';
+  const hz = Math.round(mhz * 1e6);
+  const M = Math.floor(hz / 1e6);
+  const k = Math.floor((hz % 1e6) / 1e3).toString().padStart(3, '0');
+  const h = (hz % 1e3).toString().padStart(3, '0');
+  return `${M}.${k}.${h}`;
 }
 function bandClass(cond) {
   const c = (cond || '').toLowerCase();
