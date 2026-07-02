@@ -720,19 +720,6 @@ def _apply_log_records(records, source_label):
     my_grid = cfg("grid", "")
     my_ll = grid_to_latlon(my_grid) if my_grid else None
 
-    # Collapse duplicate records (e.g. QRZ transiently returning a fresh QSO
-    # twice after two apps upload it) so stats and the recent list stay honest.
-    seen, deduped = set(), []
-    for r in records:
-        key = _qso_key(r.get("call"), r.get("qso_date"),
-                       r.get("time_on"), r.get("band"),
-                       r.get("mode") or r.get("submode"))
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(r)
-    records = deduped
-
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
     for r in records:
@@ -758,9 +745,17 @@ def _apply_log_records(records, source_label):
             if km and (best is None or km > best["km"]):
                 best = {"call": call, "km": round(km), "country": ctry or "", "grid": grid[:6]}
 
-    # newest 15 by QSO date/time, independent of file/record order
-    recent = []
-    for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")))[-15:][::-1]:
+    # newest 15 UNIQUE QSOs (newest first). The dedup is applied only to this
+    # visible list — so a QSO QRZ transiently returns twice can't show twice —
+    # while total/stats above count every record, matching QRZ's own count.
+    recent, seen = [], set()
+    for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")),
+                    reverse=True):
+        key = _qso_key(r.get("call"), r.get("qso_date"), r.get("time_on"),
+                       r.get("band"), r.get("mode") or r.get("submode"))
+        if key in seen:
+            continue
+        seen.add(key)
         recent.append({
             "date": r.get("qso_date", ""), "time": (r.get("time_on", "") or "")[:4],
             "call": (r.get("call") or "").upper(),
@@ -771,6 +766,8 @@ def _apply_log_records(records, source_label):
             "country": (r.get("country") or "").strip()
                        or callsign_country((r.get("call") or "").upper()) or "",
         })
+        if len(recent) >= 15:
+            break
 
     with _lock:
         prev_total = STATE["log"]["total"]
