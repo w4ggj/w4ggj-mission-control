@@ -332,6 +332,25 @@ def _snr_to_smeter(snr):
     return label, round(pct)
 
 
+def _strength_to_smeter(db):
+    """Map a rig RX S-meter reading (dB relative to S9, Hamlib STRENGTH) onto the
+    same S-label / gauge-% the digital path uses — so the analog needle swings on
+    voice and CW too, not just on WSJT-X decodes. 6 dB per S-unit below S9."""
+    if db is None:
+        return "—", 0
+    if db >= 10:                       # well over S9
+        pct = 60 + min(40, db) / 40 * 40
+        label = f"S9+{min(40, int(db)):02d}"
+    elif db >= 0:                      # right around S9
+        pct = 60 + db / 40 * 40
+        label = "S9"
+    else:                              # below S9
+        s_units = max(0.0, 9 + db / 6.0)
+        pct = max(0.0, (s_units - 1) / 8 * 60)
+        label = f"S{max(1, min(9, int(round(s_units))))}"
+    return label, round(max(0, min(100, pct)))
+
+
 def _skip_qdatetime(r):
     """Advance past a serialized Qt QDateTime (date + time + timespec)."""
     r.i64()          # QDate: Julian day number
@@ -540,6 +559,7 @@ def _rigctld_loop():
                         set_w = round(v * max_w) if v is not None else None
 
                     meters = {}
+                    strength_db = None
                     if po is not None and tx:
                         meters["PO"] = f"{po} W"
                     for label, lvl, unit, dec, tx_only in supported:
@@ -548,6 +568,8 @@ def _rigctld_loop():
                         v = _rigctld_level(sock, lvl)
                         if v is not None:
                             meters[label] = f"{v:.{dec}f}{(' ' + unit) if unit else ''}"
+                            if lvl == "STRENGTH":
+                                strength_db = v
 
                     with _lock:
                         rd = STATE["radio"]
@@ -564,6 +586,12 @@ def _rigctld_loop():
                                 "band": freq_to_band(hz), "mode": mode or "—",
                                 "tx": tx, "last_seen": time.time(),
                             })
+                            # Drive the analog S-meter from the rig's RX signal
+                            # strength so the needle lives on voice/CW too (WSJT-X
+                            # owns the gauge whenever it's the active source).
+                            if not tx and strength_db is not None:
+                                lbl, spct = _strength_to_smeter(strength_db)
+                                STATE["signal"] = {"snr": None, "s_meter": lbl, "s_pct": spct}
                     time.sleep(interval)
         except Exception:
             with _lock:

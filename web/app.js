@@ -195,6 +195,14 @@ function render(s) {
   else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
 
+  // Voice/analog vs digital. WSJT-X being the active source (or a digital mode)
+  // means the decode/PSKReporter panels are live; on voice/CW/AM/FM they idle,
+  // so dim them and flag it. The S-meter still swings (rig RX strength).
+  const modeU = (r.mode || '').toUpperCase();
+  const isWsjtx = (r.source || '') === 'WSJT-X';
+  const digitalMode = isWsjtx || /FT8|FT4|JT|Q65|MSK|FST4|WSPR|JS8/.test(modeU);
+  document.body.classList.toggle('voice-mode', !!r.online && !digitalMode);
+
   if (r.dx_call) {
     $('chip-dx-wrap').style.display = 'flex';
     $('chip-dx').textContent = 'WORKING ' + r.dx_call + (r.report ? ' · ' + r.report : '');

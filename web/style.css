@@ -223,6 +223,17 @@ body::before {
 }
 .psk-open:hover { border-color: var(--cyan); color: #eafffb; box-shadow: 0 0 18px rgba(63, 224, 207, 0.18); }
 
+/* ── Mode awareness (voice / CW vs digital) ─────────────────── */
+.digi-badge {
+  display: none; margin-left: 12px; vertical-align: middle;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
+  color: var(--amber); border: 1px solid rgba(246, 168, 33, 0.4);
+  border-radius: 5px; padding: 2px 8px;
+}
+body.voice-mode .digi-badge { display: inline-block; }
+body.voice-mode #sec-decodes,
+body.voice-mode #sec-psk { opacity: .45; filter: saturate(.55); transition: opacity .3s, filter .3s; }
+
 /* ── Live station audio ─────────────────────────────────────── */
 .stream-wrap { margin-top: 18px; text-align: center; }
 .stream-btn {
