@@ -823,6 +823,12 @@ def _adif_loop():
 # QRZ — your complete history plus every new QSO your apps upload there, regardless
 # of mode. READ-ONLY: only ACTION=FETCH is used; nothing is ever written to QRZ.
 _qrz_log_active = False
+# Incremental sync state: keep the whole book in memory keyed by QRZ log id, then
+# each cycle fetch only records newer than the highest id we hold (tiny). A full
+# re-sync runs occasionally to reconcile edits/deletes (which keep their old id).
+_qrz_by_logid = {}
+_qrz_no_logid = []
+_qrz_last_full = 0.0
 
 
 QRZ_API = "https://logbook.qrz.com/api"
@@ -845,12 +851,11 @@ def _qrz_response(body):
     return fields
 
 
-def _qrz_fetch_records(api_key):
-    """Download the full QRZ logbook as parsed ADIF records (read-only).
-
-    Pages through the log with the AFTERLOGID cursor (per-record APP_QRZLOG_LOGID);
-    most logs return in one batch and the loop then stops on the empty next page."""
-    records, after = [], 0
+def _qrz_fetch_records(api_key, after=0):
+    """Download QRZ logbook records with LOGID > `after` as parsed ADIF records
+    (read-only). after=0 fetches the whole book; a higher cursor fetches only the
+    records newer than it. Pages through with the AFTERLOGID cursor."""
+    records = []
     for _ in range(1000):  # safety cap on pages (any real logbook fits well under)
         data = urllib.parse.urlencode({
             "KEY": api_key, "ACTION": "FETCH", "OPTION": f"AFTERLOGID:{after}",
@@ -891,23 +896,60 @@ def _qrz_fetch_records(api_key):
     return out
 
 
+def _qrz_sync_once(key, full_every=1800):
+    """Run one QRZ sync cycle and publish to STATE. Full re-download on the first
+    run or every `full_every` seconds (to catch edits/deletes, which keep their
+    old log id); otherwise fetch only records newer than the highest id held and
+    merge them in. Returns (total_qsos, kind) where kind describes what happened."""
+    global _qrz_log_active, _qrz_last_full
+    now = time.time()
+    do_full = not _qrz_by_logid or (now - _qrz_last_full) >= full_every
+    after = 0 if do_full else max(_qrz_by_logid)
+    recs = _qrz_fetch_records(key, after)
+
+    if do_full:
+        _qrz_by_logid.clear()
+        _qrz_no_logid.clear()
+        _qrz_last_full = now
+
+    new = 0
+    for r in recs:
+        lid = r.get("app_qrzlog_logid") or ""
+        if lid.isdigit():
+            if int(lid) not in _qrz_by_logid:
+                new += 1
+            _qrz_by_logid[int(lid)] = r
+        else:
+            _qrz_no_logid.append(r)
+            new += 1
+
+    total = len(_qrz_by_logid) + len(_qrz_no_logid)
+    if do_full and total == 0:
+        return 0, "empty"
+    if do_full or new:
+        _apply_log_records(list(_qrz_by_logid.values()) + _qrz_no_logid,
+                           f"QRZ Logbook ({total} QSOs)")
+        _qrz_log_active = True
+        return total, ("full re-sync" if do_full else f"+{new} new")
+    return total, "no change"
+
+
 def _qrz_loop():
-    global _qrz_log_active
     key = os.environ.get("QRZ_API_KEY", "") or cfg("qrz_api_key", "")
     if not key:
         print("[qrz] no API key — set QRZ_API_KEY (or qrz_api_key). QRZ sync disabled.")
         return
-    interval = int(cfg("qrz_sync_sec", 300))
-    print(f"[qrz] logbook sync ON (read-only) — refresh every {interval}s")
+    interval = int(cfg("qrz_sync_sec", 60))
+    full_every = int(cfg("qrz_full_sync_sec", 1800))
+    print(f"[qrz] logbook sync ON (read-only) — new IDs every {interval}s, "
+          f"full re-sync every {full_every}s")
     while True:
         try:
-            recs = _qrz_fetch_records(key)
-            if recs:
-                _apply_log_records(recs, f"QRZ Logbook ({len(recs)} QSOs)")
-                _qrz_log_active = True
-                print(f"[qrz] synced {len(recs)} QSOs from QRZ")
-            else:
+            total, kind = _qrz_sync_once(key, full_every)
+            if kind == "empty":
                 print("[qrz] fetch returned 0 records — check API key / logbook not empty")
+            elif kind != "no change":
+                print(f"[qrz] synced {total} QSOs ({kind})")
         except Exception as e:
             print(f"[qrz] sync failed ({e}) — keeping last log, retrying")
         time.sleep(interval)
