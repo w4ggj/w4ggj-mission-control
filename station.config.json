@@ -31,7 +31,7 @@
 
   "_section_cloner": "=== UDP CLONER + WEB LOGGER BRIDGE (folds the standalone udp_cloner into this agent) ===",
   "_cloner_note": "WSJT-X can only send its UDP stream to ONE destination. Turn this on to run the cloner in the same process as the agent: point WSJT-X at cloner_local_port (2235) and it clones a verbatim copy to every target below PLUS the dashboard engine (wsjtx_udp_port, added automatically) — so one WSJT-X port feeds your other apps AND this dashboard. cloner_adif_path blank = no local ADIF file (QRZ stays the logbook). cloner_blog_folder blank = park-ref watcher off. callsign/grid above are reused for the web-logger Type-5 packets.",
-  "cloner_enabled": false,
+  "cloner_enabled": true,
   "cloner_local_port": 2235,
   "cloner_remote_port": 2234,
   "cloner_bridge_port": 12061,
@@ -52,11 +52,12 @@
   "extra_adif_paths": [],
 
   "_section_qrz": "=== QRZ LOGBOOK API (recommended log source) ===",
-  "_qrz_note": "Read-only pull of your FULL QRZ logbook (all history + every new contact your apps upload, any mode). The secret API KEY goes in agent.config.json (gitignored) as \"qrz_api_key\" or the QRZ_API_KEY env var — NOT here. When a key is set QRZ drives the logbook and the local WSJT-X ADIF is ignored.",
+  "_qrz_note": "Read-only pull of your FULL QRZ logbook (all history + every new contact your apps upload, any mode). The secret API KEY goes in agent.config.json (gitignored) as \"qrz_api_key\" or the QRZ_API_KEY env var — NOT here. When a key is set QRZ drives the logbook and the local WSJT-X ADIF is ignored. Sync is incremental: the whole book loads once, then qrz_sync_sec only pulls records newer than the highest log id held (tiny). qrz_full_sync_sec re-downloads the whole book occasionally to catch edits/deletions (which keep their old id).",
   "qrz_sync_sec": 60,
+  "qrz_full_sync_sec": 1800,
 
   "_section_rigctld": "=== HAMLIB rigctld (optional — live power / SWR / ALC / meters) ===",
-  "rigctld_enabled": true,
+  "rigctld_enabled": false,
   "rigctld_host": "127.0.0.1",
   "rigctld_port": 4532,
   "rig_max_power_watts": 100,
@@ -64,14 +65,14 @@
   "_rigctld_note": "Set rigctld_enabled=true to stream live rig telemetry (actual power, SWR, ALC, S-meter, drain V/I, temp — whatever your rig reports; probed on connect and logged). The agent reads from rigctld here; point rigctld at whatever controls the radio. (A) HRD/WSJT-X->HRD: 'rigctld -m <HRD model, see: rigctl --list | findstr /i deluxe> -r 127.0.0.1:7809' (HRD allows multiple clients, runs alongside WSJT-X). (B) WSJT-X drives the rig directly: 'rigctld -m 1023 -r COMx -s 38400' (1023=FT-450) then set WSJT-X Rig='Hamlib NET rigctl' server 127.0.0.1:4532. Freq/mode already come via WSJT-X UDP regardless. rig_max_power_watts converts the rig's 0-100% power level to watts.",
 
   "_section_hrd": "=== HAM RADIO DELUXE (direct — live power / gains / SWR flag) ===",
-  "hrd_enabled": true,
+  "hrd_enabled": false,
   "hrd_host": "127.0.0.1",
   "hrd_port": 7809,
   "hrd_poll_sec": 1.0,
   "_hrd_note": "For stations where HRD controls the rig and WSJT-X points at HRD (so rigctld can't reach the CAT port). Set hrd_enabled=true to read live data straight from HRD's TCP interface — real RF power, gains (Mic/RF/NR), and a High-SWR warning appear on both dashboards. No Hamlib needed; HRD must be running with Rig Control connected. HRD does NOT expose the numeric PWR/SWR/ALC bar values. To also get those numeric meters (S-meter/SWR/ALC), run rigctld alongside HRD and set rigctld_enabled=true as well — the two complement each other (HRD = power/gains/High-SWR flag, rigctld = numeric meters). Both are enabled here for the W4GGJ station. rig_max_power_watts scales the 0-100 power level to watts.",
 
   "_section_flrig": "=== FLRIG (rig control app that DOES expose the meters) ===",
-  "flrig_enabled": false,
+  "flrig_enabled": true,
   "flrig_host": "127.0.0.1",
   "flrig_port": 12345,
   "flrig_poll_sec": 1.0,
