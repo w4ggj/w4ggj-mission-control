@@ -53,7 +53,7 @@
 
   "_section_qrz": "=== QRZ LOGBOOK API (recommended log source) ===",
   "_qrz_note": "Read-only pull of your FULL QRZ logbook (all history + every new contact your apps upload, any mode). The secret API KEY goes in agent.config.json (gitignored) as \"qrz_api_key\" or the QRZ_API_KEY env var — NOT here. When a key is set QRZ drives the logbook and the local WSJT-X ADIF is ignored.",
-  "qrz_sync_sec": 300,
+  "qrz_sync_sec": 60,
 
   "_section_rigctld": "=== HAMLIB rigctld (optional — live power / SWR / ALC / meters) ===",
   "rigctld_enabled": true,

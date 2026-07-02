@@ -720,19 +720,6 @@ def _apply_log_records(records, source_label):
     my_grid = cfg("grid", "")
     my_ll = grid_to_latlon(my_grid) if my_grid else None
 
-    # Collapse duplicate records (e.g. QRZ transiently returning a fresh QSO
-    # twice after two apps upload it) so stats and the recent list stay honest.
-    seen, deduped = set(), []
-    for r in records:
-        key = _qso_key(r.get("call"), r.get("qso_date"),
-                       r.get("time_on"), r.get("band"),
-                       r.get("mode") or r.get("submode"))
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append(r)
-    records = deduped
-
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
     for r in records:
@@ -758,9 +745,17 @@ def _apply_log_records(records, source_label):
             if km and (best is None or km > best["km"]):
                 best = {"call": call, "km": round(km), "country": ctry or "", "grid": grid[:6]}
 
-    # newest 15 by QSO date/time, independent of file/record order
-    recent = []
-    for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")))[-15:][::-1]:
+    # newest 15 UNIQUE QSOs (newest first). The dedup is applied only to this
+    # visible list — so a QSO QRZ transiently returns twice can't show twice —
+    # while total/stats above count every record, matching QRZ's own count.
+    recent, seen = [], set()
+    for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")),
+                    reverse=True):
+        key = _qso_key(r.get("call"), r.get("qso_date"), r.get("time_on"),
+                       r.get("band"), r.get("mode") or r.get("submode"))
+        if key in seen:
+            continue
+        seen.add(key)
         recent.append({
             "date": r.get("qso_date", ""), "time": (r.get("time_on", "") or "")[:4],
             "call": (r.get("call") or "").upper(),
@@ -771,6 +766,8 @@ def _apply_log_records(records, source_label):
             "country": (r.get("country") or "").strip()
                        or callsign_country((r.get("call") or "").upper()) or "",
         })
+        if len(recent) >= 15:
+            break
 
     with _lock:
         prev_total = STATE["log"]["total"]
@@ -878,7 +875,20 @@ def _qrz_fetch_records(api_key):
         if nxt <= after:   # cursor didn't advance -> that was the last/only batch
             break
         after = nxt
-    return records
+
+    # De-duplicate by QRZ log id (unique per record). QRZ's AFTERLOGID boundary
+    # is inclusive, so the last QSO of a page is re-returned on the next page —
+    # that echo shares the same logid and must be dropped, while genuinely
+    # distinct QSOs (different logids) are all kept, so the total matches QRZ.
+    seen, out = set(), []
+    for r in records:
+        lid = r.get("app_qrzlog_logid") or ""
+        if lid.isdigit():
+            if lid in seen:
+                continue
+            seen.add(lid)
+        out.append(r)
+    return out
 
 
 def _qrz_loop():
