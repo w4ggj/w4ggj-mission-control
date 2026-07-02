@@ -115,6 +115,14 @@ STATE = {
         "recent": [],      # [{lat, lon, call, band, mode, date, time}, …] newest first
         "updated": 0,
     },
+    # award progress (from the log): Worked All States, DXCC, grids
+    "awards": {
+        "was": {"worked": [], "count": 0},   # US states worked (of 50)
+        "was_bands": {},                     # {band: worked-state count} for 5BWAS
+        "dxcc": 0,                           # unique DXCC entities (≈ countries)
+        "grids": 0,                          # unique Maidenhead fields
+        "updated": 0,
+    },
     # space weather / propagation
     "solar": {
         "sfi": "—", "a_index": "—", "k_index": "—", "sunspots": "—",
@@ -154,6 +162,16 @@ BANDS = [
     (50.0, 54.0, "6m"), (144.0, 148.0, "2m"), (222.0, 225.0, "1.25m"),
     (420.0, 450.0, "70cm"),
 ]
+
+
+# The 50 US states (for Worked All States). DC is worked-able but not one of
+# the 50, so it counts on the map if worked but never in the /50 denominator.
+US_STATES = frozenset((
+    "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL",
+    "IN", "IA", "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT",
+    "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI",
+    "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+))
 
 
 def freq_to_band(hz):
@@ -740,6 +758,17 @@ def _rebuild_log_from_session():
         "recent": map_recent,
         "updated": time.time(),
     })
+    # WSJT-X Type-5 QSO packets don't carry a US state, so WAS stays empty on the
+    # live-session path (QRZ is the real award source); DXCC/grids still populate.
+    was = sorted({q["state"] for q in _session_qsos
+                  if (q.get("state") or "").upper() in US_STATES})
+    STATE["awards"].update({
+        "was": {"worked": was, "count": len(was)},
+        "was_bands": {},
+        "dxcc": len(countries),
+        "grids": len(grids),
+        "updated": time.time(),
+    })
 
 
 def _apply_log_records(records, source_label):
@@ -753,12 +782,15 @@ def _apply_log_records(records, source_label):
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
     reach = {}  # grid-field -> [lat, lon] for the all-time map glow
+    was = set()          # US states worked (any band) — Worked All States
+    was_band = {}        # band -> set(state) for 5-band WAS progress
     for r in records:
         call = (r.get("call") or "").upper()
         band = (r.get("band") or "").lower()
         mode = (r.get("mode") or r.get("submode") or "").upper()
         grid = (r.get("gridsquare") or "").upper()
         ctry = (r.get("country") or "").strip() or callsign_country(call)
+        st = (r.get("state") or "").strip().upper()
         if call:
             calls.add(call)
         if band:
@@ -775,6 +807,10 @@ def _apply_log_records(records, source_label):
                     reach[grid[:4]] = [round(ll[0], 1), round(ll[1], 1)]
         if ctry:
             countries.add(ctry)
+        if st in US_STATES:
+            was.add(st)
+            if band:
+                was_band.setdefault(band, set()).add(st)
         if my_ll and grid:
             km = haversine_km(my_ll, grid_to_latlon(grid))
             if km and (best is None or km > best["km"]):
@@ -831,6 +867,13 @@ def _apply_log_records(records, source_label):
             "station": [round(my_ll[0], 3), round(my_ll[1], 3)] if my_ll else None,
             "reach": list(reach.values()),
             "recent": map_recent,
+            "updated": time.time(),
+        })
+        STATE["awards"].update({
+            "was": {"worked": sorted(was), "count": len(was)},
+            "was_bands": {b: len(s) for b, s in was_band.items()},
+            "dxcc": len(countries),
+            "grids": len(grids),
             "updated": time.time(),
         })
         if len(records) > prev_total and prev_total > 0:
@@ -1180,7 +1223,7 @@ def _dx_loop():
 # In the Render/cloud role the radio/decodes/signal/log come from the home agent
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
-INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map")
+INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards")
 
 
 def ingest(sections):

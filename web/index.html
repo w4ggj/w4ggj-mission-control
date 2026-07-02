@@ -225,9 +225,32 @@
     </div>
   </div>
 
-  <!-- ── SECTION 07 · PSKREPORTER ──────────────────────────── -->
+  <!-- ── SECTION 07 · AWARDS ───────────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 07 · AWARDS</div>
+    <div class="sec-title">Award Progress</div>
+    <div class="sec-desc">Worked All States, DXCC entities and Maidenhead grids — tallied live from the logbook. States light up as they're worked.</div>
+    <div class="sec-rule"></div>
+    <div class="grid g4" style="margin-bottom:14px">
+      <div class="card"><div class="lbl">WORKED ALL STATES</div><div class="big cyan" id="aw-was">—</div><div class="lbl" id="aw-was-sub">of 50</div></div>
+      <div class="card"><div class="lbl">DXCC ENTITIES</div><div class="big cyan" id="aw-dxcc">—</div><div class="lbl">DXCC needs 100</div></div>
+      <div class="card"><div class="lbl">GRID SQUARES</div><div class="big cyan" id="aw-grids">—</div><div class="lbl">Maidenhead fields</div></div>
+      <div class="card"><div class="lbl">5-BAND WAS</div><div class="big cyan" id="aw-5bwas">—</div><div class="lbl">bands at 50 states</div></div>
+    </div>
+    <div class="card awards-card">
+      <div class="lbl" style="margin-bottom:10px">🇺🇸 WORKED ALL STATES · <span class="cyan" id="aw-was-inline">—</span></div>
+      <svg id="usmap" viewBox="-60 10 1020 600" preserveAspectRatio="xMidYMid meet"
+           role="img" aria-label="US map — worked states lit"></svg>
+      <div class="us-foot">
+        <span class="us-missing-lbl" id="us-missing-lbl">Still needed:</span>
+        <span class="us-missing" id="us-missing">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 08 · PSKREPORTER ──────────────────────────── -->
   <div class="section" id="sec-psk">
-    <div class="sec-tag">SECTION 07 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
+    <div class="sec-tag">SECTION 08 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
     <div class="sec-title">PSKReporter Live Map</div>
     <div class="sec-desc">Where <b id="psk-call" class="cyan">W4GGJ</b> is being heard right now — live reception reports of signals we've transmitted, worldwide.</div>
     <div class="sec-rule"></div>
@@ -246,6 +269,7 @@
 </div>
 
 <script src="/worldmap.js"></script>
+<script src="/usmap.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

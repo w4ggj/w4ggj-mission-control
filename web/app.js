@@ -359,8 +359,58 @@ function render(s) {
   // ── world reach map ──
   if (window.WorldMap && s.map) WorldMap.update(s.map);
 
+  // ── awards (WAS / DXCC / grids) ──
+  renderAwards(s.awards || {});
+
   firstLoad = false;
 }
+
+/* ── awards: Worked-All-States map + DXCC / grid tallies ──── */
+const WAS_5BANDS = ['80m', '40m', '20m', '15m', '10m'];   // classic 5-Band WAS
+let usMapBuilt = false;
+function buildUsMap() {
+  const svg = $('usmap');
+  if (!svg || !window.US_STATE_PATHS) return;
+  let h = '';
+  for (const code in US_STATE_PATHS) {
+    h += `<path class="us-st" data-st="${code}" d="${US_STATE_PATHS[code]}"><title>${code}</title></path>`;
+  }
+  svg.innerHTML = h;
+  usMapBuilt = true;
+}
+function renderAwards(a) {
+  if (!usMapBuilt) buildUsMap();
+  const was = a.was || { worked: [], count: 0 };
+  const worked = new Set(was.worked || []);
+  // light up worked states
+  const svg = $('usmap');
+  if (svg) svg.querySelectorAll('.us-st').forEach(p => {
+    p.classList.toggle('worked', worked.has(p.getAttribute('data-st')));
+  });
+  const cnt = was.count || 0;
+  $('aw-was').textContent = cnt || '—';
+  $('aw-was').classList.toggle('green', cnt >= 50);
+  $('aw-was').classList.toggle('cyan', cnt < 50);
+  $('aw-was-sub').textContent = cnt >= 50 ? 'WAS COMPLETE ✦' : `of 50 · ${50 - cnt} to go`;
+  $('aw-was-inline').textContent = `${cnt} / 50`;
+  $('aw-dxcc').textContent = a.dxcc || '—';
+  $('aw-grids').textContent = a.grids ? a.grids.toLocaleString() : '—';
+  // 5-Band WAS: how many of the classic 5 bands have all 50 states
+  const wb = a.was_bands || {};
+  const full = WAS_5BANDS.filter(b => (wb[b] || 0) >= 50).length;
+  $('aw-5bwas').textContent = `${full}/5`;
+  // still-needed list
+  const miss = $('us-missing'), lbl = $('us-missing-lbl');
+  if (cnt >= 50) {
+    if (lbl) lbl.style.display = 'none';
+    if (miss) { miss.innerHTML = '<b class="green">All 50 states worked — WAS complete.</b>'; }
+  } else if (miss) {
+    if (lbl) lbl.style.display = '';
+    const need = [...WAS_ALL].filter(st => !worked.has(st));
+    miss.innerHTML = need.map(st => `<span class="us-chip">${st}</span>`).join('');
+  }
+}
+const WAS_ALL = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY'];
 
 /* ── poll loop ────────────────────────────────────────────── */
 async function poll() {
