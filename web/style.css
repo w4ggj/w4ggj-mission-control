@@ -262,3 +262,57 @@ body.voice-mode #sec-psk { opacity: .45; filter: saturate(.55); transition: opac
 @media (prefers-reduced-motion: reduce) { .stream-eq i { animation: none; transform: scaleY(.7); } }
 
 .foot { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--muted); text-align: center; }
+
+/* ── World Reach map ──────────────────────────────────────── */
+.worldmap-card { padding: 10px; }
+#worldmap {
+  width: 100%; height: auto; display: block; border-radius: 12px;
+  background: #050e15; overflow: hidden;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.6);
+}
+.wm-grat path { fill: none; stroke: rgba(90, 200, 210, 0.07); stroke-width: 0.5; }
+.wm-land {
+  fill: #123641; stroke: rgba(90, 200, 210, 0.35); stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+.wm-term { fill: rgba(1, 6, 14, 0.5); stroke: rgba(80, 190, 200, 0.10); stroke-width: 0.5; }
+.wm-reach circle { fill: var(--cyan); opacity: 0.22; }
+.wm-trail { fill: none; stroke-width: 0.7; opacity: 0.20; stroke-linecap: round; }
+.wm-pulse {
+  fill: none; stroke-width: 1.5; stroke-linecap: round;
+  stroke-dasharray: 44 956; stroke-dashoffset: 1000;
+  filter: url(#wm-glow);
+  animation: wm-travel 3.2s linear infinite;
+}
+@keyframes wm-travel { to { stroke-dashoffset: 0; } }
+.wm-end { filter: url(#wm-glow); animation: wm-endpulse 3.2s ease-out infinite; }
+@keyframes wm-endpulse { 0%, 55% { opacity: 0; } 70% { opacity: 1; } 100% { opacity: 0.55; } }
+.wm-home-dot { fill: url(#wm-home); filter: url(#wm-glow); }
+.wm-home-ring {
+  fill: none; stroke: var(--amber); stroke-width: 1.2;
+  transform-box: fill-box; transform-origin: center;
+  animation: wm-ring 2.6s ease-out infinite;
+}
+@keyframes wm-ring {
+  0% { transform: scale(0.5); opacity: 0.9; }
+  100% { transform: scale(3.6); opacity: 0; }
+}
+.wm-legend {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 16px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  color: var(--muted); padding: 12px 8px 4px;
+}
+.wm-legend .wm-key {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  vertical-align: -1px; margin-right: 6px;
+}
+.wm-key.reach { background: var(--cyan); opacity: 0.4; }
+.wm-key.arc { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+.wm-key.home { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.wm-key.night { background: rgba(1, 6, 14, 0.9); border: 1px solid rgba(80, 190, 200, 0.25); border-radius: 2px; }
+.wm-count { margin-left: auto; color: var(--cyan-dim); }
+@media (prefers-reduced-motion: reduce) {
+  .wm-pulse { animation: none; stroke-dashoffset: 0; stroke-dasharray: none; opacity: 0.5; }
+  .wm-end { animation: none; opacity: 0.6; }
+  .wm-home-ring { animation: none; opacity: 0.4; }
+}

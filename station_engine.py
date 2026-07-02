@@ -108,6 +108,13 @@ STATE = {
         "adif_path": "",
         "mode_breakdown": {}, "band_breakdown": {},
     },
+    # world map — station + all-time reach + recent contact arcs (from the log)
+    "map": {
+        "station": None,   # [lat, lon] of this station (from grid)
+        "reach": [],       # [[lat, lon], …] unique worked grid-fields, all-time
+        "recent": [],      # [{lat, lon, call, band, mode, date, time}, …] newest first
+        "updated": 0,
+    },
     # space weather / propagation
     "solar": {
         "sfi": "—", "a_index": "—", "k_index": "—", "sunspots": "—",
@@ -684,6 +691,7 @@ def _rebuild_log_from_session():
     my_ll = grid_to_latlon(cfg("grid", "") or "")
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
+    reach = {}
     for q in _session_qsos:
         if q["call"]:
             calls.add(q["call"])
@@ -697,18 +705,40 @@ def _rebuild_log_from_session():
             countries.add(q["country"])
         if q["grid"]:
             grids.add(q["grid"][:4])
+            if q["grid"][:4] not in reach:
+                ll = grid_to_latlon(q["grid"])
+                if ll:
+                    reach[q["grid"][:4]] = [round(ll[0], 1), round(ll[1], 1)]
             if my_ll:
                 km = haversine_km(my_ll, grid_to_latlon(q["grid"]))
                 if km and (best is None or km > best["km"]):
                     best = {"call": q["call"], "km": round(km),
                             "country": q["country"], "grid": q["grid"][:6]}
     recent = [dict(q) for q in _session_qsos[-15:][::-1]]
+    map_recent = []
+    for q in _session_qsos[::-1]:
+        if len(map_recent) >= 60:
+            break
+        if q["grid"]:
+            ll = grid_to_latlon(q["grid"])
+            if ll:
+                map_recent.append({
+                    "lat": round(ll[0], 2), "lon": round(ll[1], 2),
+                    "call": q["call"], "band": q["band"], "mode": q["mode"],
+                    "date": q.get("date", ""), "time": q.get("time", ""),
+                })
     STATE["log"].update({
         "total": len(_session_qsos), "unique_calls": len(calls),
         "bands": len(bands), "modes": len(modes), "countries": len(countries),
         "grids": len(grids), "best_dx": best, "recent": recent,
         "band_breakdown": band_bd, "mode_breakdown": mode_bd,
         "adif_path": "live session · WSJT-X UDP",
+    })
+    STATE["map"].update({
+        "station": [round(my_ll[0], 3), round(my_ll[1], 3)] if my_ll else None,
+        "reach": list(reach.values()),
+        "recent": map_recent,
+        "updated": time.time(),
     })
 
 
@@ -722,6 +752,7 @@ def _apply_log_records(records, source_label):
 
     calls, bands, modes, grids, countries = set(), set(), set(), set(), set()
     band_bd, mode_bd, best = {}, {}, None
+    reach = {}  # grid-field -> [lat, lon] for the all-time map glow
     for r in records:
         call = (r.get("call") or "").upper()
         band = (r.get("band") or "").lower()
@@ -738,6 +769,10 @@ def _apply_log_records(records, source_label):
             mode_bd[mode] = mode_bd.get(mode, 0) + 1
         if grid:
             grids.add(grid[:4])
+            if grid[:4] not in reach:
+                ll = grid_to_latlon(grid)
+                if ll:
+                    reach[grid[:4]] = [round(ll[0], 1), round(ll[1], 1)]
         if ctry:
             countries.add(ctry)
         if my_ll and grid:
@@ -749,6 +784,7 @@ def _apply_log_records(records, source_label):
     # visible list — so a QSO QRZ transiently returns twice can't show twice —
     # while total/stats above count every record, matching QRZ's own count.
     recent, seen = [], set()
+    map_recent = []  # newest QSOs that carry a grid, for the map arcs
     for r in sorted(records, key=lambda x: (x.get("qso_date", ""), x.get("time_on", "")),
                     reverse=True):
         key = _qso_key(r.get("call"), r.get("qso_date"), r.get("time_on"),
@@ -756,17 +792,30 @@ def _apply_log_records(records, source_label):
         if key in seen:
             continue
         seen.add(key)
-        recent.append({
-            "date": r.get("qso_date", ""), "time": (r.get("time_on", "") or "")[:4],
-            "call": (r.get("call") or "").upper(),
-            "band": (r.get("band") or "").lower(),
-            "freq": r.get("freq", ""),
-            "mode": (r.get("mode") or r.get("submode") or "").upper(),
-            "rst_s": r.get("rst_sent", ""), "rst_r": r.get("rst_rcvd", ""),
-            "country": (r.get("country") or "").strip()
-                       or callsign_country((r.get("call") or "").upper()) or "",
-        })
-        if len(recent) >= 15:
+        grid = (r.get("gridsquare") or "").upper()
+        if len(map_recent) < 60 and grid:
+            ll = grid_to_latlon(grid)
+            if ll:
+                map_recent.append({
+                    "lat": round(ll[0], 2), "lon": round(ll[1], 2),
+                    "call": (r.get("call") or "").upper(),
+                    "band": (r.get("band") or "").lower(),
+                    "mode": (r.get("mode") or r.get("submode") or "").upper(),
+                    "date": r.get("qso_date", ""),
+                    "time": (r.get("time_on", "") or "")[:4],
+                })
+        if len(recent) < 15:
+            recent.append({
+                "date": r.get("qso_date", ""), "time": (r.get("time_on", "") or "")[:4],
+                "call": (r.get("call") or "").upper(),
+                "band": (r.get("band") or "").lower(),
+                "freq": r.get("freq", ""),
+                "mode": (r.get("mode") or r.get("submode") or "").upper(),
+                "rst_s": r.get("rst_sent", ""), "rst_r": r.get("rst_rcvd", ""),
+                "country": (r.get("country") or "").strip()
+                           or callsign_country((r.get("call") or "").upper()) or "",
+            })
+        if len(recent) >= 15 and len(map_recent) >= 60:
             break
 
     with _lock:
@@ -777,6 +826,12 @@ def _apply_log_records(records, source_label):
             "best_dx": best, "recent": recent,
             "band_breakdown": band_bd, "mode_breakdown": mode_bd,
             "adif_path": source_label,
+        })
+        STATE["map"].update({
+            "station": [round(my_ll[0], 3), round(my_ll[1], 3)] if my_ll else None,
+            "reach": list(reach.values()),
+            "recent": map_recent,
+            "updated": time.time(),
         })
         if len(records) > prev_total and prev_total > 0:
             STATE["log"]["last_qso_ts"] = time.time()
@@ -1125,7 +1180,7 @@ def _dx_loop():
 # In the Render/cloud role the radio/decodes/signal/log come from the home agent
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
-INGEST_SECTIONS = ("radio", "decodes", "signal", "log")
+INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map")
 
 
 def ingest(sections):

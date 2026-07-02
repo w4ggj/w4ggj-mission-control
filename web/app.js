@@ -356,6 +356,9 @@ function render(s) {
     dx.innerHTML = '<div class="empty">No DX spots yet.</div>';
   }
 
+  // ── world reach map ──
+  if (window.WorldMap && s.map) WorldMap.update(s.map);
+
   firstLoad = false;
 }
 

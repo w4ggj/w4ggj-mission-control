@@ -206,9 +206,28 @@
     </div>
   </div>
 
-  <!-- ── SECTION 06 · PSKREPORTER ──────────────────────────── -->
+  <!-- ── SECTION 06 · WORLD REACH ──────────────────────────── -->
+  <div class="section">
+    <div class="sec-tag">SECTION 06 · WORLD REACH</div>
+    <div class="sec-title">Contact Map</div>
+    <div class="sec-desc">Every grid <b class="cyan">W4GGJ</b> has ever worked, glowing across the globe — with the latest QSOs arcing out live from Tampa Bay. The shaded band is the grey line (day/night terminator) as it falls right now.</div>
+    <div class="sec-rule"></div>
+    <div class="card worldmap-card">
+      <svg id="worldmap" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet"
+           role="img" aria-label="World map of W4GGJ logged contacts"></svg>
+      <div class="wm-legend">
+        <span><i class="wm-key reach"></i> WORKED GRID</span>
+        <span><i class="wm-key arc"></i> RECENT QSO</span>
+        <span><i class="wm-key home"></i> W4GGJ</span>
+        <span><i class="wm-key night"></i> GREY LINE</span>
+        <span class="wm-count" id="wm-count">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SECTION 07 · PSKREPORTER ──────────────────────────── -->
   <div class="section" id="sec-psk">
-    <div class="sec-tag">SECTION 06 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
+    <div class="sec-tag">SECTION 07 · PROPAGATION REPORTS<span class="digi-badge">DIGITAL RECEPTION · VOICE NOT SHOWN</span></div>
     <div class="sec-title">PSKReporter Live Map</div>
     <div class="sec-desc">Where <b id="psk-call" class="cyan">W4GGJ</b> is being heard right now — live reception reports of signals we've transmitted, worldwide.</div>
     <div class="sec-rule"></div>
@@ -226,6 +245,7 @@
 
 </div>
 
+<script src="/worldmap.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
