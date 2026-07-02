@@ -141,6 +141,29 @@ function renderMeters(el, meters) {
   }).join('');
 }
 
+/* ── live "new contact" celebration flash ─────────────────── */
+let flashTimer = null;
+function flashNewContact(q) {
+  const el = $('qso-flash');
+  if (!el || !q || !q.call) return;
+  const meta = [q.country, q.band, (q.mode || '').toUpperCase()].filter(Boolean).join(' · ');
+  const when = (q.date && q.time) ? `${fmtDate(q.date)} · ${fmtTime(q.time)} UTC` : '';
+  el.innerHTML =
+    '<div class="qf-card">' +
+      '<button class="qf-x" type="button" aria-label="Dismiss">×</button>' +
+      '<div class="qf-head"><span class="qf-dot"></span>NEW CONTACT LOGGED</div>' +
+      `<div class="qf-call">${(q.call || '').replace(/</g, '&lt;')}</div>` +
+      (meta ? `<div class="qf-meta">${meta}</div>` : '') +
+      (when ? `<div class="qf-time">${when}</div>` : '') +
+    '</div>';
+  // restart the entrance animation even if one is already showing
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  const x = el.querySelector('.qf-x');
+  if (x) x.onclick = () => el.classList.remove('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => el.classList.remove('show'), 9000);
+}
+
 /* ── render ───────────────────────────────────────────────── */
 function render(s) {
   const id = s.identity || {};
@@ -312,6 +335,8 @@ function render(s) {
       lb.appendChild(tr);
     });
   }
+  // live "new contact" flash — the moment a QSO lands in the log
+  if (fresh && log.recent && log.recent.length) flashNewContact(log.recent[0]);
   lastQsoTs = log.last_qso_ts || lastQsoTs;
 
   // ── POTA ──
