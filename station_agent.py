@@ -37,6 +37,7 @@ import station_engine as engine
 
 HERE = Path(__file__).resolve().parent
 PUSH_INTERVAL = 2.0     # seconds between pushes
+MAP_RESEND_SEC = 60     # resend the (rarely-changing) world-map section at least this often
 
 
 def load_agent_cfg():
@@ -114,17 +115,35 @@ def main():
     fails = 0
     last_beat = 0.0
     ever_online = False
+    last_map_updated = None
+    last_map_sent = 0.0
     while True:
         time.sleep(PUSH_INTERVAL)
         tel = engine.home_telemetry()
         radio_online = bool(tel.get("radio", {}).get("online"))
         ever_online = ever_online or radio_online
+        # The world-map section (all-time reach, thousands of points) only
+        # changes when the logbook does — once a minute at most. Push it when
+        # its timestamp moved, or at least every MAP_RESEND_SEC so the cloud
+        # rebuilds the map quickly after a restart; the cloud keeps the last
+        # copy otherwise, so the 2s pushes stay tiny instead of re-sending the
+        # whole reach list every time.
+        mp = tel.get("map")
+        now = time.time()
+        map_updated = mp.get("updated") if isinstance(mp, dict) else None
+        sending_map = isinstance(mp, dict) and (
+            map_updated != last_map_updated or now - last_map_sent >= MAP_RESEND_SEC)
+        if isinstance(mp, dict) and not sending_map:
+            tel.pop("map", None)
         try:
             status = push(url, token, tel)
             if status == 200:
                 if fails:
                     print("[agent] link restored")
                 fails = 0
+                if sending_map:
+                    last_map_updated = map_updated   # only mark sent once it lands
+                    last_map_sent = now
                 # periodic heartbeat so "pushing OK but no data" is visible
                 now = time.time()
                 if now - last_beat >= 30:
