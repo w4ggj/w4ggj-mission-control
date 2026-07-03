@@ -315,10 +315,10 @@ function drawScope(frame) {
   sx.strokeStyle = 'rgba(246,168,33,0.85)'; sx.beginPath(); sx.moveTo(n/2, 0); sx.lineTo(n/2, sh); sx.stroke();
   const fx = scope.fx, H2 = fall.height;
   if (!scope.water) { fx.fillStyle = '#030a12'; fx.fillRect(0, 0, n, H2); scope.water = true; }
-  fx.drawImage(fall, 0, 0, n, H2, 0, -1, n, H2);
+  fx.drawImage(fall, 0, 0, n, H2, 0, 1, n, H2);   // flow downward: shift down, new row on top
   const row = fx.createImageData(n, 1);
   for (let i = 0; i < n; i++) { const c = scopeColor((bins[i]-lo)/rng); row.data[i*4]=c[0]; row.data[i*4+1]=c[1]; row.data[i*4+2]=c[2]; row.data[i*4+3]=255; }
-  fx.putImageData(row, 0, H2 - 1);
+  fx.putImageData(row, 0, 0);
   const dial = frame.dial_hz || frame.center_hz || 0;
   if (dial) $('sk-scope-freq').textContent = (dial/1e6).toFixed(3) + ' MHz';
 }

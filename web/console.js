@@ -239,13 +239,13 @@ function drawSpectrum(frame) {
   // waterfall: scroll up 1px, draw new row at bottom
   const H2 = fall.height;
   if (!waterInit) { fallX.fillStyle = '#030a12'; fallX.fillRect(0, 0, n, H2); waterInit = true; }
-  fallX.drawImage(fall, 0, 0, n, H2, 0, -1, n, H2);
+  fallX.drawImage(fall, 0, 0, n, H2, 0, 1, n, H2);   // flow downward: shift down, new row on top
   const row = fallX.createImageData(n, 1);
   for (let i = 0; i < n; i++) {
     const c = colormap((bins[i] - lo) / rng);
     row.data[i * 4] = c[0]; row.data[i * 4 + 1] = c[1]; row.data[i * 4 + 2] = c[2]; row.data[i * 4 + 3] = 255;
   }
-  fallX.putImageData(row, 0, H2 - 1);
+  fallX.putImageData(row, 0, 0);
   // axis labels: dial ± span/2
   const dial = frame.dial_hz || frame.center_hz || 0, span = frame.span_hz || 0;
   if (dial && span) {
