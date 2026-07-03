@@ -98,6 +98,10 @@
   "sdr_upconverter_offset_hz": 125000000,
   "sdr_center_offset_hz": 0,
   "sdr_ppm": 0,
+  "_sdr_relay_note": "Remote waterfall: set sdr_relay_cloud=true to also push a decimated spectrum to the cloud so /console shows a live waterfall away from home. It reuses cloud_url + ingest_token from agent.config.json (never put the token here). sdr_relay_bins/sdr_relay_fps keep the cloud + viewer bandwidth small (256 bins @ 4 fps ~ tiny). The LAN /console still gets the full-res frame.",
+  "sdr_relay_cloud": false,
+  "sdr_relay_bins": 256,
+  "sdr_relay_fps": 4,
 
   "_section_dxcluster": "=== DX CLUSTER (live spots panel) ===",
   "_dxcluster_note": "The DX Cluster panel streams live spots from a telnet cluster node (dxsummit.fi's HTTP API is unreachable from the cloud host). Point at any public node. It logs in with the station callsign. Override without a redeploy via Render env vars DX_CLUSTER_HOST / DX_CLUSTER_PORT if the default node is unreachable. Alternatives: dxc.ve7cc.net:23, dxfun.com:8000, cluster.dl9gtb.de:8000.",

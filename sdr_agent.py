@@ -51,6 +51,11 @@ DEFAULTS = {
     "sdr_upconverter_offset_hz": 125000000,
     "sdr_center_offset_hz": 0,          # nudge SDR center off the dial (DC-spike dodge)
     "sdr_ppm": 0,
+    # remote waterfall relay — decimate + push to the cloud so /console works
+    # away from home. Reuses cloud_url + ingest_token from agent.config.json.
+    "sdr_relay_cloud": False,
+    "sdr_relay_bins": 256,
+    "sdr_relay_fps": 4,
 }
 
 
@@ -69,34 +74,69 @@ def load_cfg():
         env = os.environ.get(k.upper())
         if env is not None:
             cfg[k] = type(DEFAULTS[k])(env) if not isinstance(DEFAULTS[k], bool) else env.lower() == "true"
+    # cloud relay target reuses the home agent's credentials (gitignored /
+    # env), never committed here
+    cfg["cloud_url"] = ""
+    cfg["ingest_token"] = ""
+    try:
+        a = json.loads((HERE / "agent.config.json").read_text(encoding="utf-8"))
+        cfg["cloud_url"] = a.get("cloud_url", "")
+        cfg["ingest_token"] = a.get("ingest_token", "")
+    except Exception:
+        pass
+    cfg["cloud_url"] = os.environ.get("CLOUD_URL", cfg["cloud_url"]).rstrip("/")
+    cfg["ingest_token"] = os.environ.get("INGEST_TOKEN", cfg["ingest_token"])
     if "--synthetic" in sys.argv:
         cfg["sdr_driver"] = "synthetic"
     return cfg
 
 
-def get_dial_hz(url):
-    """Read the rig's current dial frequency (Hz) from the engine, or 0."""
-    try:
-        req = urllib.request.Request(url.rstrip("/") + "/api/state")
-        with urllib.request.urlopen(req, timeout=5) as r:
-            s = json.loads(r.read())
-        radio = s.get("radio", {})
-        return int(radio.get("dial_hz") or radio.get("rx_hz") or 0)
-    except Exception:
-        return 0
+def decimate_max(bins, out_n):
+    """Shrink a spectrum to out_n bins using block-max so peaks survive."""
+    n = len(bins)
+    if out_n >= n or out_n <= 0:
+        return [round(v, 1) for v in bins]
+    step = n / out_n
+    out = []
+    for i in range(out_n):
+        a, b = int(i * step), int((i + 1) * step)
+        seg = bins[a:b] or bins[a:a + 1]
+        out.append(round(max(seg), 1))
+    return out
 
 
-def post_frame(url, frame):
+def get_dial_hz(urls):
+    """Read the rig's current dial frequency (Hz) from the first engine that
+    answers (local server first, then the cloud), or 0."""
+    for url in urls:
+        if not url:
+            continue
+        try:
+            req = urllib.request.Request(url.rstrip("/") + "/api/state")
+            with urllib.request.urlopen(req, timeout=5) as r:
+                s = json.loads(r.read())
+            radio = s.get("radio", {})
+            hz = int(radio.get("dial_hz") or radio.get("rx_hz") or 0)
+            if hz:
+                return hz
+        except Exception:
+            continue
+    return 0
+
+
+def post_frame(url, frame, token=None):
+    """POST a frame; return (ok, error-or-None). Caller logs sparingly."""
     try:
         body = json.dumps(frame).encode()
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["X-Ingest-Token"] = token
         req = urllib.request.Request(url.rstrip("/") + "/api/spectrum", data=body,
-                                     method="POST",
-                                     headers={"Content-Type": "application/json"})
+                                     method="POST", headers=headers)
         urllib.request.urlopen(req, timeout=5).read()
-        return True
+        return True, None
     except Exception as e:
-        print(f"[sdr] post failed: {e}")
-        return False
+        return False, e
 
 
 def sdr_center_for(dial_hz, cfg):
@@ -241,14 +281,27 @@ def main():
     backend, synthetic = make_backend(cfg)
     span = int(cfg["sdr_sample_rate"])
     period = 1.0 / max(1, int(cfg["sdr_fps"]))
+    dial_urls = [url, cfg["cloud_url"]]
+
+    relay = bool(cfg["sdr_relay_cloud"] and cfg["cloud_url"] and cfg["ingest_token"])
+    relay_period = 1.0 / max(1, int(cfg["sdr_relay_fps"]))
+    relay_bins = int(cfg["sdr_relay_bins"])
+    last_relay = 0.0
+    if cfg["sdr_relay_cloud"] and not relay:
+        print("[sdr] sdr_relay_cloud is on but cloud_url/ingest_token are missing "
+              "(set them in agent.config.json) — remote relay disabled.")
+
     print(f"[sdr] driver={'synthetic' if synthetic else cfg['sdr_driver']} "
           f"span={span/1e6:.3f} MHz bins={cfg['sdr_fft_bins']} fps={cfg['sdr_fps']} -> {url}")
+    if relay:
+        print(f"[sdr] remote relay ON -> {cfg['cloud_url']} "
+              f"({relay_bins} bins @ {cfg['sdr_relay_fps']} fps)")
 
     last_dial = 0
-    fails = 0
+    lfail = rfail = 0            # local / relay failure counters (sparse logging)
     while True:
         t0 = time.time()
-        dial = get_dial_hz(url)
+        dial = get_dial_hz(dial_urls)
         if not dial:
             dial = last_dial or 7074000     # idle default so the scope still draws
         last_dial = dial
@@ -261,15 +314,34 @@ def main():
                 "bins": bins, "n": len(bins), "synthetic": synthetic,
                 "ts": time.time(),
             }
-            if post_frame(url, frame):
-                fails = 0
-            else:
-                fails += 1
+            # full-res -> local server (LAN console). Skip if no local target set.
+            if url:
+                ok, err = post_frame(url, frame)
+                if ok:
+                    lfail = 0
+                else:
+                    lfail += 1
+                    if lfail == 1 or lfail % 60 == 0:
+                        print(f"[sdr] local post to {url} failing ({err}) — is the "
+                              f"dashboard server running there? (relay still works)")
+            # remote relay — decimated + throttled so the cloud/viewer bandwidth
+            # stays small while the LAN console keeps the full-res frame above.
+            if relay and t0 - last_relay >= relay_period:
+                last_relay = t0
+                rframe = dict(frame, bins=decimate_max(bins, relay_bins))
+                rframe["n"] = len(rframe["bins"])
+                ok, err = post_frame(cfg["cloud_url"], rframe, token=cfg["ingest_token"])
+                if ok:
+                    rfail = 0
+                else:
+                    rfail += 1
+                    if rfail == 1 or rfail % 30 == 0:
+                        print(f"[sdr] relay post to {cfg['cloud_url']} failing ({err})")
         except Exception as e:
-            fails += 1
-            if fails <= 3 or fails % 30 == 0:
-                print(f"[sdr] read/post error: {e}")
-            time.sleep(min(5, fails))
+            if lfail % 30 == 0:
+                print(f"[sdr] read error: {e}")
+            lfail += 1
+            time.sleep(min(5, lfail))
         dt = time.time() - t0
         if dt < period:
             time.sleep(period - dt)

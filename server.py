@@ -91,8 +91,16 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if self.path == "/api/spectrum":
-            # SDR agent pushes FFT frames here (LAN / localhost only). No token —
-            # this is local shack traffic and never leaves the machine's network.
+            # SDR agent pushes FFT frames here. On the LAN (local role) it's
+            # trusted shack traffic — no token. On the cloud it's the remote
+            # waterfall relay, so require the same ingest token as /api/ingest
+            # to keep randos from spamming frames at the public app.
+            if ROLE == "cloud":
+                token = self.headers.get("X-Ingest-Token", "")
+                if not INGEST_TOKEN or token != INGEST_TOKEN:
+                    self._send(401, json.dumps({"error": "bad token"}),
+                               "application/json; charset=utf-8")
+                    return
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 data = json.loads(self.rfile.read(length) or b"{}")
