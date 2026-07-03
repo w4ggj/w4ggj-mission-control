@@ -131,6 +131,19 @@
         </div>
       </div>
     </div>
+
+    <!-- SDR band scope (spectrum + waterfall) — shown only when the SDR feed is live -->
+    <div class="card scope-card" id="scope-card" style="display:none">
+      <div class="scope-head">
+        <div class="lbl">🌊 SDR BAND SCOPE · <span class="cyan" id="scope-freq">—</span></div>
+        <div class="scope-badge" id="scope-badge">● LIVE PANADAPTER</div>
+      </div>
+      <div class="scope-plot">
+        <canvas id="scope-spec"></canvas>
+        <canvas id="scope-fall"></canvas>
+      </div>
+      <div class="scope-axis" id="scope-axis"></div>
+    </div>
   </div>
 
   <!-- ── SECTION 01 · LIVE DECODES ─────────────────────────── -->
