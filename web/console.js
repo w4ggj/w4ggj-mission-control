@@ -212,13 +212,12 @@ function drawSpectrum(frame) {
   // size canvases to bin count (device px); CSS scales to width
   if (spec.width !== n) { spec.width = n; fall.width = n; fall.height = 118; waterInit = false; }
   const sh = 70; spec.height = sh;
-  // auto-scale with smoothed floor/peak
-  let mn = Infinity, mx = -Infinity;
-  for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  // black point at the (slow-tracked) noise floor + wide min range so flat noise
-  // stays dark instead of painting the whole waterfall yellow
-  floorEMA += (mn - floorEMA) * 0.05; peakEMA += (mx - peakEMA) * 0.2;
-  const lo = floorEMA, hi = Math.max(peakEMA, lo + 36), rng = hi - lo;
+  // auto-scale: black point at a robust noise-floor estimate (25th percentile)
+  // + wide min range so noise stays dark instead of a solid yellow wash
+  const srt = bins.slice().sort((a, b) => a - b);
+  const mn = srt[Math.floor(srt.length * 0.25)], mx = srt[srt.length - 1];
+  floorEMA += (mn - floorEMA) * 0.1; peakEMA += (mx - peakEMA) * 0.2;
+  const lo = floorEMA - 1, hi = Math.max(peakEMA, lo + 34), rng = hi - lo;
   // spectrum trace
   specX.clearRect(0, 0, n, sh);
   specX.beginPath(); specX.moveTo(0, sh);

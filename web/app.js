@@ -614,13 +614,14 @@ function drawScope(frame) {
   if (!scope.specX) { scope.specX = spec.getContext('2d'); scope.fallX = fall.getContext('2d'); }
   if (scope.n !== n) { spec.width = n; fall.width = n; fall.height = 150; scope.n = n; scope.water = false; }
   const sh = 90; spec.height = sh;
-  let mn = Infinity, mx = -Infinity;
-  for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  // colour scale: black point AT the (slowly-tracked) noise floor, with a wide
-  // min dynamic range so the noise floor stays dark and only real signals climb
-  // through the colours (a narrow range paints flat noise a solid yellow).
-  scope.floor += (mn - scope.floor) * 0.05; scope.peak += (mx - scope.peak) * 0.2;
-  const lo = scope.floor, hi = Math.max(scope.peak, lo + 36), rng = hi - lo;
+  // colour scale: black point at a robust noise-floor estimate (25th percentile,
+  // not the single lowest bin), wide min dynamic range so the noise floor stays
+  // dark and only real signals climb the colours (a narrow range paints noise
+  // solid yellow).
+  const srt = bins.slice().sort((a, b) => a - b);
+  const mn = srt[Math.floor(srt.length * 0.25)], mx = srt[srt.length - 1];
+  scope.floor += (mn - scope.floor) * 0.1; scope.peak += (mx - scope.peak) * 0.2;
+  const lo = scope.floor - 1, hi = Math.max(scope.peak, lo + 34), rng = hi - lo;
   const sx = scope.specX;
   sx.clearRect(0, 0, n, sh);
   sx.beginPath(); sx.moveTo(0, sh);

@@ -95,6 +95,7 @@
   "sdr_device_args": "driver=rtlsdr",
   "sdr_sample_rate": 1024000,
   "sdr_fft_bins": 1024,
+  "sdr_avg": 8,
   "sdr_fps": 12,
   "sdr_gain": "auto",
   "sdr_hf_mode": "direct",
