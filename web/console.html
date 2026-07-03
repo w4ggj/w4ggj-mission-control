@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4GGJ · SDR Console</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/console.css">
+</head>
+<body class="console">
+
+  <!-- ── Rig control header ─────────────────────────────── -->
+  <div class="rig">
+    <div class="rig-freq"><span id="c-freq">--.---.---</span><span class="rig-unit">MHz</span></div>
+    <div class="rig-mid">
+      <div class="bands" id="c-bands"></div>
+      <div class="rig-mode"><span id="c-mode">—</span><span class="digi" id="c-digi">FT8</span>
+        <span id="c-src" style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-left:6px">NO RIG</span></div>
+    </div>
+    <div class="rig-right">
+      <div class="txrx off" id="c-txrx">STANDBY</div>
+      <div class="smeter">
+        <div class="sm-fill" id="c-sm-fill"></div>
+        <div class="sm-ticks"><span>S1</span><span>S3</span><span>S5</span><span>S7</span><span>S9</span><span>+20</span><span>+40</span></div>
+      </div>
+      <div class="dbm" id="c-dbm">S— · — dBm</div>
+    </div>
+  </div>
+
+  <!-- ── Geographic DX map ──────────────────────────────── -->
+  <div class="mapwrap">
+    <svg id="c-map" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid slice"
+         role="img" aria-label="DX map"></svg>
+    <div class="map-ovl" id="c-ovl">A: — Hz</div>
+  </div>
+
+  <!-- ── SDR spectrum + waterfall ───────────────────────── -->
+  <div class="pan">
+    <canvas id="c-spec"></canvas>
+    <canvas id="c-fall"></canvas>
+    <div class="pan-wait" id="c-wait">Waiting for SDR feed — start <b>sdr_agent.py</b> (or <b>--synthetic</b> to preview)</div>
+    <div class="pan-axis" id="c-axis"></div>
+  </div>
+
+  <div class="conn" id="c-conn"><i></i><span id="c-conn-t">LINK</span></div>
+
+<script src="/worldmap.js"></script>
+<script src="/console.js"></script>
+</body>
+</html>

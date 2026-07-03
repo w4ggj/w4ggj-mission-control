@@ -171,6 +171,27 @@ def snapshot():
         return json.loads(json.dumps(STATE, default=str))
 
 
+# ── Live spectrum frame (SDR panadapter → /console) ────────────────────────────
+# The SDR agent (sdr_agent.py) POSTs FFT frames here at ~10 Hz over the LAN. Kept
+# OUT of STATE/snapshot on purpose: it's high-rate and local-only (the shack
+# console polls /api/spectrum directly), so it never bloats the 1 Hz /api/state
+# snapshot nor the cloud ingest.
+_spectrum = None
+
+
+def set_spectrum(frame):
+    """Store the latest spectrum frame from the SDR agent (dict with center_hz,
+    span_hz, dial_hz, bins[], ref_dbm, ts…)."""
+    global _spectrum
+    if isinstance(frame, dict):
+        frame["recv_ts"] = time.time()
+        _spectrum = frame
+
+
+def get_spectrum():
+    return _spectrum or {}
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 BANDS = [
     (0.1357, 0.1378, "2200m"), (0.472, 0.479, "630m"), (1.8, 2.0, "160m"),
