@@ -462,9 +462,11 @@ body.voice-mode #sec-psk { opacity: .45; filter: saturate(.55); transition: opac
   position: relative; width: 100%; border-radius: 10px; overflow: hidden;
   background: #030a12; border: 1px solid var(--border);
 }
-#scope-spec, #scope-fall { width: 100%; display: block; }
-#scope-spec { height: 90px; border-bottom: 1px solid rgba(90,200,210,0.12); image-rendering: auto; }
-#scope-fall { height: 150px; image-rendering: pixelated; }
+/* image-rendering:auto so the browser bilinearly smooths the (decimated on
+   the cloud) waterfall instead of showing hard blocky pixels */
+#scope-spec, #scope-fall { width: 100%; display: block; image-rendering: auto; }
+#scope-spec { height: 90px; border-bottom: 1px solid rgba(90,200,210,0.12); }
+#scope-fall { height: 150px; }
 .scope-axis {
   display: flex; justify-content: space-between; align-items: center;
   margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 1px;

@@ -126,15 +126,17 @@ function render(s) {
 
   const air = $('onair'), airDot = $('air-dot'), airTxt = $('air-txt');
   const freqPanel = $('freq-panel');
+  // toggle tx/rx via classList so the scope's has-scope class (added elsewhere)
+  // isn't wiped every poll
+  freqPanel.classList.remove('tx', 'rx');
   if (r.tx) {
     air.className = 'pill tx'; airDot.className = 'dot tx'; airTxt.textContent = 'TRANSMITTING';
-    freqPanel.className = 'panel a-freq tx';
+    freqPanel.classList.add('tx');
   } else if (r.online) {
     air.className = 'pill live'; airDot.className = 'dot live'; airTxt.textContent = 'ON AIR';
-    freqPanel.className = 'panel a-freq rx';
+    freqPanel.classList.add('rx');
   } else {
     air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'STANDBY';
-    freqPanel.className = 'panel a-freq';
   }
 
   // frequency hero
@@ -282,6 +284,60 @@ function render(s) {
   firstLoad = false;
 }
 
+/* ── SDR band scope (spectrum + waterfall) at the bottom of the freq card ── */
+const scope = { sx: null, fx: null, floor: -110, peak: -40, water: false, n: 0 };
+function scopeColor(t) {
+  t = Math.max(0, Math.min(1, t));
+  const s = [[4,10,30],[12,40,110],[20,120,190],[40,210,180],[230,220,90],[255,120,40],[255,255,255]];
+  const f = t * (s.length - 1), i = Math.floor(f), g = f - i;
+  const a = s[i], b = s[Math.min(s.length - 1, i + 1)];
+  return [a[0]+(b[0]-a[0])*g, a[1]+(b[1]-a[1])*g, a[2]+(b[2]-a[2])*g];
+}
+function drawScope(frame) {
+  const bins = frame.bins || [], n = bins.length;
+  if (!n) return;
+  const spec = $('sk-spec'), fall = $('sk-fall');
+  if (!scope.sx) { scope.sx = spec.getContext('2d'); scope.fx = fall.getContext('2d'); }
+  if (scope.n !== n) { spec.width = n; fall.width = n; fall.height = 120; scope.n = n; scope.water = false; }
+  const sh = 60; spec.height = sh;
+  let mn = Infinity, mx = -Infinity;
+  for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
+  scope.floor += (mn - scope.floor) * 0.1; scope.peak += (mx - scope.peak) * 0.1;
+  const lo = scope.floor - 3, hi = Math.max(scope.peak + 3, lo + 12), rng = hi - lo, sx = scope.sx;
+  sx.clearRect(0, 0, n, sh); sx.beginPath(); sx.moveTo(0, sh);
+  for (let i = 0; i < n; i++) sx.lineTo(i, sh - Math.max(0, Math.min(1, (bins[i]-lo)/rng)) * (sh-2));
+  sx.lineTo(n, sh); sx.closePath(); sx.fillStyle = 'rgba(63,224,207,0.16)'; sx.fill();
+  sx.beginPath();
+  for (let i = 0; i < n; i++) { const y = sh - Math.max(0, Math.min(1, (bins[i]-lo)/rng)) * (sh-2); i ? sx.lineTo(i, y) : sx.moveTo(i, y); }
+  sx.strokeStyle = '#7ff0e2'; sx.lineWidth = 1; sx.stroke();
+  sx.strokeStyle = 'rgba(246,168,33,0.85)'; sx.beginPath(); sx.moveTo(n/2, 0); sx.lineTo(n/2, sh); sx.stroke();
+  const fx = scope.fx, H2 = fall.height;
+  if (!scope.water) { fx.fillStyle = '#030a12'; fx.fillRect(0, 0, n, H2); scope.water = true; }
+  fx.drawImage(fall, 0, 0, n, H2, 0, -1, n, H2);
+  const row = fx.createImageData(n, 1);
+  for (let i = 0; i < n; i++) { const c = scopeColor((bins[i]-lo)/rng); row.data[i*4]=c[0]; row.data[i*4+1]=c[1]; row.data[i*4+2]=c[2]; row.data[i*4+3]=255; }
+  fx.putImageData(row, 0, H2 - 1);
+  const dial = frame.dial_hz || frame.center_hz || 0;
+  if (dial) $('sk-scope-freq').textContent = (dial/1e6).toFixed(3) + ' MHz';
+}
+async function pollScope() {
+  try {
+    const r = await fetch('/api/spectrum', { cache: 'no-store' });
+    const frame = await r.json();
+    const fresh = frame && frame.bins && frame.bins.length &&
+      (Date.now()/1000 - (frame.recv_ts || frame.ts || 0)) < 12;
+    const card = $('sk-scope'), fp = $('freq-panel');
+    if (fresh) {
+      if (card.style.display === 'none') card.style.display = '';
+      if (fp) fp.classList.add('has-scope');
+      drawScope(frame);
+    } else if (card.style.display !== 'none') {
+      card.style.display = 'none';
+      if (fp) fp.classList.remove('has-scope');
+    }
+  } catch (e) { /* ignore */ }
+}
+
 /* ── poll loop ───────────────────────────────────────────── */
 async function poll() {
   try {
@@ -295,3 +351,5 @@ async function poll() {
 }
 poll();
 setInterval(poll, 1000);
+pollScope();
+setInterval(pollScope, 350);

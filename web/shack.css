@@ -231,3 +231,25 @@ body::before {
       "pota dx   iss";
   }
 }
+
+/* ── SDR band scope at the bottom of the frequency card ───── */
+/* When the scope is live the freq card top-aligns and the hero shrinks a bit
+   so both the (huge) frequency and the scope fit the fixed kiosk cell. The
+   scope is pinned to the bottom of the card via margin-top:auto. */
+.a-freq.has-scope { justify-content: flex-start; }
+.a-freq.has-scope .hz { font-size: clamp(34px, 3.7vw, 92px); }
+.a-freq.has-scope .hz-unit { font-size: clamp(9px, 0.85vw, 14px); margin-top: 2px; }
+.a-freq.has-scope .chips { margin-top: clamp(5px, 0.7vh, 11px); }
+.sk-scope { width: 100%; margin-top: auto; padding-top: clamp(5px, 0.8vh, 12px); flex: 0 0 auto; }
+.sk-scope-lbl {
+  font-family: var(--mono); font-size: clamp(8px, 0.7vw, 12px); letter-spacing: 2px;
+  color: var(--muted); margin-bottom: 5px; text-align: left;
+}
+.sk-scope-lbl span { color: var(--cyan); }
+.sk-scope-plot {
+  position: relative; width: 100%; border-radius: 10px; overflow: hidden;
+  background: #030a12; border: 1px solid var(--border);
+}
+#sk-spec, #sk-fall { width: 100%; display: block; image-rendering: auto; }
+#sk-spec { height: clamp(26px, 3.2vh, 46px); border-bottom: 1px solid rgba(90,200,210,0.12); }
+#sk-fall { height: clamp(40px, 5.4vh, 72px); }
