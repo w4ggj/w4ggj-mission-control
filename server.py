@@ -66,6 +66,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(health),
                        "application/json; charset=utf-8")
             return
+        if path == "/api/spectrum":
+            # Latest SDR panadapter frame — polled fast by the /console page.
+            self._send(200, json.dumps(engine.get_spectrum()),
+                       "application/json; charset=utf-8")
+            return
+
+        # Clean route for the SDR console (in-shack): /console -> console.html
+        if path == "/console":
+            path = "/console.html"
 
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         target = (WEB / rel).resolve()
@@ -81,6 +90,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found")
 
     def do_POST(self):
+        if self.path == "/api/spectrum":
+            # SDR agent pushes FFT frames here (LAN / localhost only). No token —
+            # this is local shack traffic and never leaves the machine's network.
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                data = json.loads(self.rfile.read(length) or b"{}")
+                engine.set_spectrum(data)
+                self._send(200, json.dumps({"ok": True}),
+                           "application/json; charset=utf-8")
+            except Exception as e:
+                self._send(400, json.dumps({"error": str(e)}),
+                           "application/json; charset=utf-8")
+            return
         if self.path == "/api/ingest":
             # Only meaningful in cloud role; token-protected.
             token = self.headers.get("X-Ingest-Token", "")
