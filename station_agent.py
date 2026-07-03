@@ -81,11 +81,15 @@ def main():
     if qrz_key:
         os.environ["QRZ_API_KEY"] = qrz_key
 
-    # Home-only data: WSJT-X UDP (live radio/decodes) + log. No public pollers
-    # (the cloud runs those). Log comes from QRZ when a key is set, else the
-    # local WSJT-X ADIF.
+    # Home-only data: WSJT-X UDP (live radio/decodes) + log. Log comes from QRZ
+    # when a key is set, else the local WSJT-X ADIF. The public pollers (solar /
+    # POTA / ISS / DX cluster) normally run only on the cloud, but when we also
+    # serve the dashboard locally those panels would be empty on the LAN view —
+    # so run them here too when local_web_enabled. (Their data isn't in the
+    # ingest push, so this doesn't affect the cloud.)
+    serve_local = engine.cfg("local_web_enabled", True)
     engine.start_engine(enable_wsjtx=True, enable_adif=not qrz_key,
-                        enable_pollers=False, enable_qrz=bool(qrz_key))
+                        enable_pollers=serve_local, enable_qrz=bool(qrz_key))
 
     # Optional: fold in the UDP cloner + web logger bridge so a single WSJT-X
     # UDP port feeds both the fan-out apps and this dashboard. The cloner clones
@@ -114,7 +118,7 @@ def main():
     # the dashboard on the LAN without depending on the cloud — and the SDR
     # agent's full-res spectrum finally has a local server to land on. On by
     # default; set "local_web_enabled": false in station.config.json to disable.
-    if engine.cfg("local_web_enabled", True):
+    if serve_local:
         try:
             import server
             from http.server import ThreadingHTTPServer
