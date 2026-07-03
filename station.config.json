@@ -16,6 +16,8 @@
   "pskreporter_url": "https://pskreporter.info/pskmap#preset&callsign=w4ggj&txrx=tx&timerange=900&hideunrec=1&blankifnone=1&hidepink=1&showlines=1&hidetime=1&mapCenter=10.8006,-77.9283,2.54",
 
   "_section_web": "=== WEB SERVER (this dashboard PC) ===",
+  "_local_web_note": "When true (default), station_agent.py also serves the dashboard locally off its own engine, so the shack can view http://localhost:8770/ (main), /shack.html and /console on the LAN without going through the cloud — and the SDR agent's full-res spectrum lands here. Set false if you don't want a local web server.",
+  "local_web_enabled": true,
   "web_port": 8770,
   "bind_host": "0.0.0.0",
   "tailscale_ip": "",
