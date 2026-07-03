@@ -45,6 +45,7 @@ DEFAULTS = {
     "sdr_device_args": "driver=rtlsdr",
     "sdr_sample_rate": 1200000,
     "sdr_fft_bins": 1024,
+    "sdr_avg": 8,                       # FFTs averaged per frame (smooths the noise)
     "sdr_fps": 10,
     "sdr_gain": "auto",                 # "auto" or a dB number
     "sdr_hf_mode": "native",            # native | upconverter | direct
@@ -187,6 +188,7 @@ class NumpySDR:
         self.win = np.hanning(self.n).astype(np.float32)
         self.sr = int(cfg["sdr_sample_rate"])
         self.driver = cfg["sdr_driver"]
+        self.avg = max(1, int(cfg.get("sdr_avg", 8)))   # FFTs averaged per frame
         self.center = None
         self._open()
 
@@ -244,14 +246,23 @@ class NumpySDR:
             self.dev.setFrequency(self._SOAPY_SDR_RX, 0, float(center_hz))
 
     def read_power(self, dial_hz):
+        # Average the POWER of several short FFTs (Welch-style) per frame. A
+        # single un-averaged FFT is very jumpy (~10-15 dB bin-to-bin), which
+        # smears the noise across the whole waterfall colour range; averaging
+        # cuts that variance ~sqrt(avg) so the noise floor is a tight, dark band
+        # and real signals stand out.
         np = self.np
-        x = np.asarray(self._read(), np.complex64)[:self.n]
-        if x.size < self.n:
-            x = np.concatenate([x, np.zeros(self.n - x.size, np.complex64)])
-        X = np.fft.fftshift(np.fft.fft(x * self.win))
-        p = 20.0 * np.log10(np.abs(X) + 1e-9)
-        p -= 20.0 * math.log10(self.n)          # normalize by FFT size
-        mid = self.n // 2                        # blank the DC spike
+        N = self.n
+        acc = np.zeros(N, dtype=np.float64)
+        for _ in range(self.avg):
+            x = np.asarray(self._read(), np.complex64)[:N]
+            if x.size < N:
+                x = np.concatenate([x, np.zeros(N - x.size, np.complex64)])
+            X = np.fft.fftshift(np.fft.fft(x * self.win))
+            acc += X.real ** 2 + X.imag ** 2     # |X|^2 = power
+        p = 10.0 * np.log10(acc / self.avg + 1e-12)
+        p -= 20.0 * math.log10(N)                # normalize by FFT size
+        mid = N // 2                             # blank the DC spike
         p[mid] = (p[mid - 1] + p[mid + 1]) / 2
         return [round(float(v), 1) for v in p]
 
