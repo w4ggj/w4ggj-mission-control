@@ -552,11 +552,17 @@ def _handle_wsjtx(data):
                 if _is_dup_session_qso(qso):
                     print(f"[wsjtx] QSO logged (dup ignored): {dx_call} {qso['band']} {mode}")
                 else:
-                    STATE["log"]["last_qso_ts"] = time.time()
                     _session_qsos.append(qso)
                     # QRZ or a local ADIF file is the authority when present; only
                     # build a live session log when neither is driving the panel.
+                    # last_qso_ts must move together with the 'recent' list it
+                    # points at — so only bump it here when the session log owns
+                    # 'recent'. When QRZ/ADIF owns it, that source bumps the
+                    # timestamp as it ingests the new QSO (a few seconds later),
+                    # keeping the "new contact" flash on the RIGHT contact instead
+                    # of flashing the previous one against a stale recent list.
                     if not _file_log_active and not _qrz_log_active:
+                        STATE["log"]["last_qso_ts"] = time.time()
                         _rebuild_log_from_session()
                     print(f"[wsjtx] QSO logged: {dx_call} {qso['band']} {mode}")
     except Exception:
