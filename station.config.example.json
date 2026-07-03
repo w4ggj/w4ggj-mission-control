@@ -1,4 +1,5 @@
 {
+  "_template": "TEMPLATE — copy this file to station.config.json and edit it for your station. station.config.json is gitignored, so your live settings never conflict with 'git pull'. (Secrets like the QRZ / ingest tokens live in agent.config.json, not here.)",
   "_info": "W4GGJ Mission Control — HOME STATION (Yaesu FT-450). This dashboard runs on a SEPARATE PC from the station PC where WSJT-X runs.",
 
   "_section_identity": "=== STATION IDENTITY ===",
