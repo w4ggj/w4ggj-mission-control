@@ -302,8 +302,10 @@ function drawScope(frame) {
   const sh = 60; spec.height = sh;
   let mn = Infinity, mx = -Infinity;
   for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  scope.floor += (mn - scope.floor) * 0.1; scope.peak += (mx - scope.peak) * 0.1;
-  const lo = scope.floor - 3, hi = Math.max(scope.peak + 3, lo + 12), rng = hi - lo, sx = scope.sx;
+  // black point at the (slow-tracked) noise floor + wide min range so flat noise
+  // stays dark instead of painting the whole waterfall yellow
+  scope.floor += (mn - scope.floor) * 0.05; scope.peak += (mx - scope.peak) * 0.2;
+  const lo = scope.floor, hi = Math.max(scope.peak, lo + 36), rng = hi - lo, sx = scope.sx;
   sx.clearRect(0, 0, n, sh); sx.beginPath(); sx.moveTo(0, sh);
   for (let i = 0; i < n; i++) sx.lineTo(i, sh - Math.max(0, Math.min(1, (bins[i]-lo)/rng)) * (sh-2));
   sx.lineTo(n, sh); sx.closePath(); sx.fillStyle = 'rgba(63,224,207,0.16)'; sx.fill();
