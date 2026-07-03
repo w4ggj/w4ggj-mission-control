@@ -215,8 +215,10 @@ function drawSpectrum(frame) {
   // auto-scale with smoothed floor/peak
   let mn = Infinity, mx = -Infinity;
   for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  floorEMA += (mn - floorEMA) * 0.1; peakEMA += (mx - peakEMA) * 0.1;
-  const lo = floorEMA - 3, hi = Math.max(peakEMA + 3, lo + 12), rng = hi - lo;
+  // black point at the (slow-tracked) noise floor + wide min range so flat noise
+  // stays dark instead of painting the whole waterfall yellow
+  floorEMA += (mn - floorEMA) * 0.05; peakEMA += (mx - peakEMA) * 0.2;
+  const lo = floorEMA, hi = Math.max(peakEMA, lo + 36), rng = hi - lo;
   // spectrum trace
   specX.clearRect(0, 0, n, sh);
   specX.beginPath(); specX.moveTo(0, sh);

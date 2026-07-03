@@ -616,8 +616,11 @@ function drawScope(frame) {
   const sh = 90; spec.height = sh;
   let mn = Infinity, mx = -Infinity;
   for (const v of bins) { if (v < mn) mn = v; if (v > mx) mx = v; }
-  scope.floor += (mn - scope.floor) * 0.1; scope.peak += (mx - scope.peak) * 0.1;
-  const lo = scope.floor - 3, hi = Math.max(scope.peak + 3, lo + 12), rng = hi - lo;
+  // colour scale: black point AT the (slowly-tracked) noise floor, with a wide
+  // min dynamic range so the noise floor stays dark and only real signals climb
+  // through the colours (a narrow range paints flat noise a solid yellow).
+  scope.floor += (mn - scope.floor) * 0.05; scope.peak += (mx - scope.peak) * 0.2;
+  const lo = scope.floor, hi = Math.max(scope.peak, lo + 36), rng = hi - lo;
   const sx = scope.specX;
   sx.clearRect(0, 0, n, sh);
   sx.beginPath(); sx.moveTo(0, sh);
