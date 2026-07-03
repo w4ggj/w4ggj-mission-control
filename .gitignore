@@ -1,5 +1,9 @@
 # ── secrets / local-only config (NEVER commit) ──
 agent.config.json
+# your LIVE station config — edit freely; 'git pull' won't fight it.
+# The tracked template is station.config.example.json (copy it to start).
+station.config.json
+*.bak
 *.env
 .env
 

@@ -44,13 +44,24 @@ UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
 
 # ── Config ────────────────────────────────────────────────────────────────────
 def load_config():
-    cfg_path = HERE / "station.config.json"
-    try:
-        raw = json.loads(cfg_path.read_text(encoding="utf-8"))
-        return {k: v for k, v in raw.items() if not k.startswith("_")}
-    except Exception as e:
-        print(f"[engine] config load failed ({e}) — using defaults")
-        return {}
+    # station.config.json is your LIVE config and is gitignored (so pulls never
+    # fight your local edits). A fresh clone only ships station.config.example.json
+    # as a template — fall back to it so the app still runs before you copy it.
+    for name in ("station.config.json", "station.config.example.json"):
+        path = HERE / name
+        if not path.exists():
+            continue
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if name.endswith(".example.json"):
+                print("[engine] station.config.json not found — using "
+                      "station.config.example.json defaults (copy it to "
+                      "station.config.json and edit for your station)")
+            return {k: v for k, v in raw.items() if not k.startswith("_")}
+        except Exception as e:
+            print(f"[engine] config load failed for {name} ({e})")
+    print("[engine] no config file found — using built-in defaults")
+    return {}
 
 
 CONFIG = load_config()
