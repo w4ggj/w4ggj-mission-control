@@ -54,7 +54,7 @@ DEFAULTS = {
     # remote waterfall relay — decimate + push to the cloud so /console works
     # away from home. Reuses cloud_url + ingest_token from agent.config.json.
     "sdr_relay_cloud": False,
-    "sdr_relay_bins": 256,
+    "sdr_relay_bins": 512,
     "sdr_relay_fps": 4,
 }
 
