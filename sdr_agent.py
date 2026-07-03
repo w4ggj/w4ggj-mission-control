@@ -197,15 +197,7 @@ class NumpySDR:
         if self.driver == "rtlsdr":
             from rtlsdr import RtlSdr
             self.dev = RtlSdr()
-            # HF (e.g. 40m) on a plain RTL2832U (like the Nooelec NESDR SMArt)
-            # needs direct sampling — the R820T2 tuner is bypassed and the ADC
-            # samples HF straight off the Q branch. No upconverter offset then.
-            if cfg["sdr_hf_mode"] == "direct":
-                try:
-                    self.dev.set_direct_sampling(2)   # 2 = Q branch (HF)
-                    print("[sdr] RTL-SDR direct sampling ON (Q branch) for HF")
-                except Exception as e:
-                    print(f"[sdr] direct sampling not set ({e})")
+            self._ds_mode = None    # current direct-sampling state (auto-switched in tune)
             self.dev.sample_rate = self.sr
             self.dev.freq_correction = int(cfg["sdr_ppm"]) or 1
             try:
@@ -236,11 +228,27 @@ class NumpySDR:
             self._read = _rd
             self._SOAPY_SDR_RX = SOAPY_SDR_RX
 
+    # RTL2832U covers 100 kHz-1.75 GHz across TWO modes: direct sampling reaches
+    # HF up to the ~14.4 MHz ADC Nyquist, the R820T2 tuner covers ~24 MHz and up.
+    # Auto-pick by frequency so the SDR follows the radio across the whole range
+    # (14.4-24 MHz — 17m/15m — is an unavoidable gap on a bare RTL).
+    DIRECT_MAX_HZ = 14_400_000
+
     def tune(self, center_hz):
         if center_hz == self.center:
             return
         self.center = center_hz
         if self.driver == "rtlsdr":
+            if self.cfg["sdr_hf_mode"] != "upconverter":
+                want = 2 if center_hz < self.DIRECT_MAX_HZ else 0   # 2=Q-branch HF, 0=tuner
+                if want != self._ds_mode:
+                    try:
+                        self.dev.set_direct_sampling(want)
+                        self._ds_mode = want
+                        print(f"[sdr] {'direct sampling (HF, Q-branch)' if want == 2 else 'tuner mode (upper HF / VHF / UHF)'}"
+                              f" @ {center_hz/1e6:.3f} MHz")
+                    except Exception as e:
+                        print(f"[sdr] sampling-mode switch failed ({e})")
             self.dev.center_freq = center_hz
         else:
             self.dev.setFrequency(self._SOAPY_SDR_RX, 0, float(center_hz))
