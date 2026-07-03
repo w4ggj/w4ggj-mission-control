@@ -27,6 +27,7 @@ Standard library only.
 
 import json
 import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -107,6 +108,27 @@ def main():
         print(f"[agent] cloner ON — point WSJT-X at UDP "
               f"{engine.cfg('cloner_local_port', 2235)} (it relays to the "
               f"dashboard on {engine_port} + your other apps)")
+
+    # Local dashboard: serve the same UI + /api/state + /api/spectrum straight
+    # off THIS process (which already owns the engine), so the shack can watch
+    # the dashboard on the LAN without depending on the cloud — and the SDR
+    # agent's full-res spectrum finally has a local server to land on. On by
+    # default; set "local_web_enabled": false in station.config.json to disable.
+    if engine.cfg("local_web_enabled", True):
+        try:
+            import server
+            from http.server import ThreadingHTTPServer
+            server.ROLE = "local"          # POST /api/spectrum needs no token on the LAN
+            web_host = engine.cfg("bind_host", "0.0.0.0")
+            web_port = int(engine.cfg("web_port", 8770))
+            httpd = ThreadingHTTPServer((web_host, web_port), server.Handler)
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            print(f"[agent] local dashboard: http://localhost:{web_port}/  ·  "
+                  f"shack: http://localhost:{web_port}/shack.html  ·  "
+                  f"console: http://localhost:{web_port}/console")
+            print(f"[agent] on the LAN use this PC's IP, e.g. http://<this-pc-ip>:{web_port}/shack.html")
+        except Exception as e:
+            print(f"[agent] local web server not started ({e})")
 
     print(f"[agent] pushing telemetry to {url} every {PUSH_INTERVAL:.0f}s")
     print("[agent] logbook source: " + ("QRZ Logbook API (read-only)" if qrz_key
