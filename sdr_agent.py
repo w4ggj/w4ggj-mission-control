@@ -32,10 +32,26 @@ Run:  python sdr_agent.py           (reads station.config.json)
 import json
 import math
 import os
+import ssl
 import sys
 import time
 import urllib.request
 from pathlib import Path
+
+
+def _build_ssl_context():
+    """Verifying TLS context that also works on Windows (Python there often lacks
+    a usable CA bundle → CERTIFICATE_VERIFY_FAILED). Uses certifi when installed."""
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+        ctx.load_verify_locations(certifi.where())
+    except Exception:
+        pass
+    return ctx
+
+
+_SSL_CTX = _build_ssl_context()
 
 HERE = Path(__file__).resolve().parent
 DEFAULTS = {
@@ -114,7 +130,7 @@ def get_dial_hz(urls):
             continue
         try:
             req = urllib.request.Request(url.rstrip("/") + "/api/state")
-            with urllib.request.urlopen(req, timeout=5) as r:
+            with urllib.request.urlopen(req, timeout=5, context=_SSL_CTX) as r:
                 s = json.loads(r.read())
             radio = s.get("radio", {})
             hz = int(radio.get("dial_hz") or radio.get("rx_hz") or 0)
@@ -134,7 +150,7 @@ def post_frame(url, frame, token=None):
             headers["X-Ingest-Token"] = token
         req = urllib.request.Request(url.rstrip("/") + "/api/spectrum", data=body,
                                      method="POST", headers=headers)
-        urllib.request.urlopen(req, timeout=5).read()
+        urllib.request.urlopen(req, timeout=5, context=_SSL_CTX).read()
         return True, None
     except Exception as e:
         return False, e

@@ -25,6 +25,7 @@ import os
 import queue
 import re
 import socket
+import ssl
 import struct
 import threading
 import time
@@ -42,6 +43,27 @@ HERE = Path(__file__).resolve().parent
 UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/122.0.0.0 Safari/537.36"}
+
+
+# ── TLS ───────────────────────────────────────────────────────────────────────
+def _build_ssl_context():
+    """A verifying TLS context that also works on Windows. Python on Windows
+    frequently ships without a usable CA bundle, so plain urllib can't verify
+    public HTTPS feeds (hamqsl solar, POTA, wheretheiss) → 'CERTIFICATE_VERIFY_
+    FAILED: unable to get local issuer certificate'. Prefer certifi's Mozilla
+    bundle when it's installed ('pip install certifi'); otherwise fall back to the
+    system default. Verification is never disabled — the QRZ call carries your API
+    key, so its TLS must stay trusted."""
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+        ctx.load_verify_locations(certifi.where())
+    except Exception:
+        pass
+    return ctx
+
+
+_SSL_CTX = _build_ssl_context()
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -1626,7 +1648,7 @@ def _qrz_fetch_records(api_key, after=0):
             "KEY": api_key, "ACTION": "FETCH", "OPTION": f"AFTERLOGID:{after}",
         }).encode()
         req = urllib.request.Request(QRZ_API, data=data, headers=UA)
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=60, context=_SSL_CTX) as resp:
             body = resp.read().decode("utf-8", "replace")
         fields = _qrz_response(body)
         if fields.get("RESULT") != "OK":
@@ -1725,7 +1747,7 @@ def _qrz_loop():
 # ══════════════════════════════════════════════════════════════════════════════
 def _get(url, timeout=12):
     req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout, context=_SSL_CTX) as resp:
         return resp.read()
 
 

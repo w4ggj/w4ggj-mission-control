@@ -62,7 +62,9 @@ def push(url, token, payload):
         url + "/api/ingest", data=body, method="POST",
         headers={"Content-Type": "application/json", "X-Ingest-Token": token},
     )
-    with urllib.request.urlopen(req, timeout=10) as resp:
+    # Reuse the engine's certifi-backed TLS context so the cloud push verifies on
+    # Windows too (same CERTIFICATE_VERIFY_FAILED issue as the public feeds).
+    with urllib.request.urlopen(req, timeout=10, context=engine._SSL_CTX) as resp:
         return resp.status
 
 
