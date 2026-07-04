@@ -216,7 +216,11 @@ body::before {
 .band-poor { border-color: rgba(255, 77, 77, 0.35); } .band-poor .bc { color: var(--red); }
 
 /* ── Log table ───────────────────────────────────────────── */
+/* On a narrow phone the 7-column log scrolls inside its card instead of
+   pushing the whole page wider than the viewport. */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .log-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+.log-table th, .log-table td { white-space: nowrap; }
 .log-table th { text-align: left; font-size: 10px; letter-spacing: 2px; color: var(--muted); padding: 8px 6px; border-bottom: 1px solid var(--border); font-weight: normal; }
 .log-table td { padding: 9px 6px; border-bottom: 1px solid rgba(90, 180, 190, 0.06); }
 .log-table tr.fresh td { animation: flashIn 2s ease; }
