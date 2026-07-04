@@ -58,7 +58,6 @@ function tickClock() {
   const mm = String(d.getUTCMinutes()).padStart(2, '0');
   const ss = String(d.getUTCSeconds()).padStart(2, '0');
   $('utc').textContent = `${hh}:${mm}:${ss}`;
-  $('q-utc').textContent = `${hh}:${mm}`;
 }
 setInterval(tickClock, 250);
 tickClock();
@@ -322,9 +321,7 @@ function render(s) {
     seenDecodeTs = s.decodes[0].ts;
   }
 
-  // ── quick stats + propagation ──
-  $('q-sfi').textContent = sol.sfi || '—';
-  $('q-kp').textContent = sol.k_index || '—';
+  // ── propagation ──
   $('p-sfi').textContent = sol.sfi || '—';
   $('p-kp').textContent = sol.k_index || '—';
   $('p-ssn').textContent = sol.sunspots || '—';
@@ -393,7 +390,6 @@ function render(s) {
   const iss = s.iss || {};
   if (iss.lat != null) {
     $('iss-pos').textContent = `${Math.abs(iss.lat)}°${iss.lat >= 0 ? 'N' : 'S'}  ${Math.abs(iss.lon)}°${iss.lon >= 0 ? 'E' : 'W'}`;
-    $('q-iss').textContent = iss.range_km ? iss.range_km.toLocaleString() + ' km' : '—';
     $('iss-range').textContent = iss.range_km ? `RANGE: ${iss.range_km.toLocaleString()} km from ${id.grid || ''}` : '';
     $('iss-alt').textContent = iss.alt_km + ' km';
     $('iss-vel').textContent = iss.vel_kmh ? iss.vel_kmh.toLocaleString() + ' km/h' : '—';
