@@ -82,6 +82,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(engine.snapshot()),
                        "application/json; charset=utf-8")
             return
+        if path == "/api/settings":
+            self._send(200, json.dumps(engine.get_settings()),
+                       "application/json; charset=utf-8")
+            return
         if path == "/api/health":
             health = {"ok": True, "role": ROLE}
             if ROLE == "cloud":
@@ -97,12 +101,14 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json; charset=utf-8")
             return
 
-        # Clean routes: /console -> console.html, /analytics -> analytics.html
+        # Clean routes: /console, /analytics, /config → their .html
         route = path
         if path == "/console":
             path = "/console.html"
         elif path == "/analytics":
             path = "/analytics.html"
+        elif path == "/config":
+            path = "/config.html"
 
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         target = (WEB / rel).resolve()
@@ -116,7 +122,8 @@ class Handler(BaseHTTPRequestHandler):
             is_html = target.suffix == ".html"
             # Count real page views (HTML documents only) — never static assets or
             # the 1 Hz /api/state polls. The analytics page itself isn't counted.
-            if is_html and route not in ("/analytics", "/analytics.html"):
+            if is_html and route not in ("/analytics", "/analytics.html",
+                                         "/config", "/config.html"):
                 engine.record_visit(self._client_ip(), route,
                                     self.headers.get("Referer", ""),
                                     self.headers.get("User-Agent", ""),
@@ -126,6 +133,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found")
 
     def do_POST(self):
+        if self.path == "/api/settings":
+            # Live dashboard settings from the shack Config page. The home agent
+            # (local role) is authoritative and relays settings to the cloud, so
+            # writes are accepted on the LAN and rejected on the cloud (where they
+            # would just be overwritten by the next ingest) with a clear hint.
+            if ROLE == "cloud":
+                self._send(403, json.dumps(
+                    {"error": "read-only here — change settings from the shack "
+                              "Config page on your home network"}),
+                    "application/json; charset=utf-8")
+                return
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                data = json.loads(self.rfile.read(length) or b"{}")
+                changed = engine.update_settings(data)
+                self._send(200, json.dumps({"ok": True, "changed": changed,
+                                            "settings": engine.get_settings()}),
+                           "application/json; charset=utf-8")
+            except Exception as e:
+                self._send(400, json.dumps({"error": str(e)}),
+                           "application/json; charset=utf-8")
+            return
         if self.path == "/api/spectrum":
             # SDR agent pushes FFT frames here. On the LAN (local role) it's
             # trusted shack traffic — no token. On the cloud it's the remote
