@@ -154,6 +154,19 @@ STATE = {
         "busiest_hour": {"hour": None, "count": 0},
         "updated": 0,
     },
+    # live contest / run panel (from the log) — rate + session tally + per-band
+    "contest": {
+        "active": False,        # a QSO within the active window (operating now)
+        "session": 0,           # QSOs in the current run (since a >gap break)
+        "session_start": 0,     # epoch of the first QSO in the run
+        "bands": {},            # band -> count for this run
+        "modes": {},            # mode -> count for this run
+        "rate_10": 0,           # projected Q/hr from the last 10 minutes
+        "last_60": 0,           # QSOs in the trailing 60 minutes
+        "best_hour": 0,         # best QSOs in any rolling 60 min of the run
+        "last_ts": 0,           # epoch of the most recent QSO
+        "updated": 0,
+    },
     # space weather / propagation
     "solar": {
         "sfi": "—", "a_index": "—", "k_index": "—", "sunspots": "—",
@@ -575,6 +588,81 @@ def freq_to_band(hz):
         if lo <= mhz <= hi:
             return b
     return "—"
+
+
+def _qso_epoch(d, t):
+    """UTC epoch seconds from an ADIF qso_date (YYYYMMDD) + time (HHMM[SS])."""
+    if not (d and len(d) == 8 and d.isdigit()):
+        return None
+    t = (t or "").strip()
+    hh = int(t[0:2]) if len(t) >= 2 and t[0:2].isdigit() else 0
+    mm = int(t[2:4]) if len(t) >= 4 and t[2:4].isdigit() else 0
+    ss = int(t[4:6]) if len(t) >= 6 and t[4:6].isdigit() else 0
+    try:
+        return datetime(int(d[:4]), int(d[4:6]), int(d[6:8]), hh, mm, ss,
+                        tzinfo=timezone.utc).timestamp()
+    except Exception:
+        return None
+
+
+def _compute_contest(qsos):
+    """Build the live contest/rate panel from QSO dicts carrying date/time/band/
+    mode. A 'session' is the current run of QSOs with no gap longer than
+    contest_gap_min (default 60m) — so it spans a UTC-midnight contest but resets
+    once you stop operating for a while. Caller holds _lock."""
+    gap_sec = float(cfg("contest_gap_min", 60)) * 60
+    active_sec = float(cfg("contest_active_min", 45)) * 60
+    now = time.time()
+    ev = []
+    for q in qsos:
+        e = _qso_epoch(q.get("date"), q.get("time"))
+        if e is not None:
+            ev.append((e, (q.get("band") or "").lower(), (q.get("mode") or "").upper()))
+    ev.sort()
+    epochs = [e for e, _, _ in ev]
+    last10 = sum(1 for e in epochs if e >= now - 600)
+    last60 = sum(1 for e in epochs if e >= now - 3600)
+
+    # current run: walk newest→oldest while each gap stays under gap_sec
+    run, prev = [], None
+    for e, band, mode in reversed(ev):
+        if prev is None or prev - e <= gap_sec:
+            run.append((e, band, mode))
+            prev = e
+        else:
+            break
+    run.reverse()
+    session_bands, session_modes = {}, {}
+    for e, band, mode in run:
+        if band:
+            session_bands[band] = session_bands.get(band, 0) + 1
+        if mode:
+            session_modes[mode] = session_modes.get(mode, 0) + 1
+
+    # best QSOs in any rolling 60 min of the run (sliding window)
+    run_ep = [e for e, _, _ in run]
+    best_hour, j = 0, 0
+    for i in range(len(run_ep)):
+        while run_ep[i] - run_ep[j] > 3600:
+            j += 1
+        best_hour = max(best_hour, i - j + 1)
+
+    last_ts = epochs[-1] if epochs else 0
+    STATE["contest"].update({
+        "active": bool(epochs) and (now - last_ts <= active_sec),
+        "session": len(run),
+        "session_start": run_ep[0] if run_ep else 0,
+        "bands": session_bands,
+        "modes": session_modes,
+        "rate_10": last10 * 6,
+        "last_60": last60,
+        "best_hour": best_hour,
+        "last_ts": last_ts,
+        # The panel shows once a run reaches this many QSOs, so a couple of casual
+        # ragchews don't trip it. Tune with contest_min_qsos (0 = always show a run).
+        "min_show": int(cfg("contest_min_qsos", 5)),
+        "updated": now,
+    })
 
 
 def grid_to_latlon(g):
@@ -1188,6 +1276,9 @@ def _rebuild_log_from_session():
     STATE["activity"].update({
         "daily": daily, "hours": hours, "by_year": by_year, "updated": time.time(),
     })
+    _compute_contest([{"date": q.get("date"), "time": q.get("time"),
+                       "band": q.get("band"), "mode": q.get("mode")}
+                      for q in _session_qsos])
     first_qso = min(day_all) if day_all else ""
     mid_date = max(day_all, key=lambda k: day_all[k]) if day_all else ""
     newest = max(ctry_first.items(), key=lambda kv: kv[1]) if ctry_first else ("", "")
@@ -1336,6 +1427,10 @@ def _apply_log_records(records, source_label):
             "daily": daily, "hours": hours, "by_year": by_year,
             "updated": time.time(),
         })
+        _compute_contest([{"date": r.get("qso_date"), "time": r.get("time_on"),
+                           "band": r.get("band"),
+                           "mode": r.get("mode") or r.get("submode")}
+                          for r in records])
         # station records / milestones
         first_qso = min(day_all) if day_all else ""
         mid_date, mid_cnt = ("", 0)
@@ -1708,7 +1803,8 @@ def _dx_loop():
 # In the Render/cloud role the radio/decodes/signal/log come from the home agent
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
-INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards", "activity", "records")
+INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards",
+                   "activity", "records", "contest")
 
 
 def ingest(sections):

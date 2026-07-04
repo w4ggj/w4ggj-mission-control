@@ -91,6 +91,12 @@
   "commander_port": 52002,
   "commander_bridge_poll_sec": 0.5,
 
+  "_section_contest": "=== CONTEST / RUN PANEL (live rate on the dashboard) ===",
+  "_contest_note": "The dashboard's contest panel auto-detects a 'run' from your logging pace — no mode switch. A run is a cluster of QSOs with no gap longer than contest_gap_min minutes; the panel shows the last-10-min rate (Q/hr), the session tally, best rolling hour, and a by-band split, then hides itself when you stop. contest_min_qsos is how many QSOs a run needs before the panel appears (so a couple of ragchews don't trip it; 0 = show any run). contest_active_min lights the 'ON AIR' badge when your last QSO was within that many minutes.",
+  "contest_gap_min": 60,
+  "contest_min_qsos": 5,
+  "contest_active_min": 45,
+
   "_section_polling": "=== POLL INTERVALS (seconds) ===",
   "poll_solar_sec": 600,
   "poll_pota_sec": 60,

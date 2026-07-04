@@ -253,3 +253,24 @@ body::before {
 #sk-spec, #sk-fall { width: 100%; display: block; image-rendering: auto; }
 #sk-spec { height: clamp(26px, 3.2vh, 46px); border-bottom: 1px solid rgba(90,200,210,0.12); }
 #sk-fall { height: clamp(40px, 5.4vh, 72px); }
+
+/* ── Contest / live-run strip ───────────────────────────────── */
+.ct-strip {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 18px;
+  background:
+    radial-gradient(120% 180% at 0% 0%, rgba(255, 77, 77, 0.10), transparent 55%),
+    var(--panel, rgba(13, 19, 29, 0.72));
+  border: 1px solid var(--border-strong, rgba(90, 200, 210, 0.34));
+  border-radius: 12px;
+}
+.ct-s-badge {
+  font-family: var(--mono, monospace); font-size: 11px; letter-spacing: 2px;
+  color: var(--red, #ff4d4d); animation: ct-blink 1.6s ease-in-out infinite;
+}
+.ct-s-badge.idle { color: var(--muted, #7d8da3); animation: none; }
+@keyframes ct-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.ct-s-item { text-align: center; }
+.ct-s-item .l { font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 1.5px; color: var(--muted, #7d8da3); }
+.ct-s-item .v { font-family: var(--stencil, sans-serif); font-size: 26px; line-height: 1.05; }
+.ct-s-run { margin-left: auto; font-family: var(--mono, monospace); font-size: 11px; letter-spacing: 1.5px; color: var(--muted, #7d8da3); }

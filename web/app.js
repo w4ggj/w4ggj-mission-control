@@ -398,7 +398,61 @@ function render(s) {
   // ── station records ribbon ──
   renderRecords(s.records || {}, log, s.awards || {});
 
+  // ── live contest / run panel ──
+  renderContest(s.contest || {});
+
   firstLoad = false;
+}
+
+/* ── live contest / run panel ─────────────────────────────── */
+const BAND_COL = {
+  '160m': '#8e7cc3', '80m': '#6d7fd6', '60m': '#4f8fe6', '40m': '#33b1e0',
+  '30m': '#26c6b8', '20m': '#4fd08a', '17m': '#8fd45f', '15m': '#d0d84a',
+  '12m': '#ffcf4d', '10m': '#ffab3d', '6m': '#ff7a45', '2m': '#ff5c6a', '70cm': '#ff6fae',
+};
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+function renderContest(c) {
+  const sec = $('sec-contest');
+  if (!sec) return;
+  const now = Date.now() / 1000;
+  const fresh = c.last_ts && (now - c.last_ts) < 21600;   // fade out ~6h after last QSO
+  const minShow = (c.min_show == null) ? 5 : c.min_show;
+  if (!c.session || c.session < minShow || !fresh) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+
+  $('ct-rate').textContent = c.rate_10 || 0;
+  $('ct-session').textContent = c.session || 0;
+  $('ct-60').textContent = c.last_60 || 0;
+  $('ct-best').textContent = c.best_hour || 0;
+  const bands = c.bands || {};
+  $('ct-nbands').textContent = Object.keys(bands).length;
+
+  const live = $('ct-live');
+  if (live) live.style.display = c.active ? '' : 'none';
+
+  if (c.session_start) {
+    const start = new Date(c.session_start * 1000);
+    const hhmm = String(start.getUTCHours()).padStart(2, '0') + ':' +
+                 String(start.getUTCMinutes()).padStart(2, '0');
+    $('ct-elapsed').textContent = `RUN ${fmtDur(now - c.session_start)} · SINCE ${hhmm}Z`;
+  } else {
+    $('ct-elapsed').textContent = '—';
+  }
+
+  const entries = Object.entries(bands).sort((a, b) => b[1] - a[1]);
+  const max = entries.length ? entries[0][1] : 1;
+  $('ct-bars').innerHTML = entries.map(([b, n]) => {
+    const w = Math.max(4, Math.round(n / max * 100));
+    const col = BAND_COL[b] || 'var(--cyan)';
+    return `<div class="ct-bar">
+      <span class="ct-bl">${b}</span>
+      <span class="ct-bt"><span class="ct-bf" style="width:${w}%;background:${col}"></span></span>
+      <span class="ct-bn">${n}</span></div>`;
+  }).join('') || '<span class="muted">—</span>';
 }
 
 /* ── station records ribbon (top of page) ─────────────────── */

@@ -95,6 +95,31 @@
     <div class="rec"><div class="rec-ico">⚡</div><div class="rec-v" id="rec-streak">—</div><div class="rec-l" id="rec-streak-l">LONGEST STREAK</div></div>
   </div>
 
+  <!-- ── Contest / Run panel (shown only while a run is live) ───── -->
+  <div class="section" id="sec-contest" style="display:none">
+    <div class="sec-tag">CONTEST · LIVE RUN<span class="live-badge" id="ct-live">● ON AIR</span></div>
+    <div class="sec-title">Running the Bands</div>
+    <div class="sec-desc">Live rate off the logbook — this run's pace, session tally and band split, updated as each contact lands.</div>
+    <div class="sec-rule"></div>
+    <div class="ct-grid">
+      <div class="card ct-hero">
+        <div class="lbl">RATE · LAST 10 MIN</div>
+        <div class="ct-rate"><span id="ct-rate">0</span><small>Q/HR</small></div>
+        <div class="ct-sub"><span id="ct-elapsed">—</span></div>
+      </div>
+      <div class="ct-tiles">
+        <div class="card ct-tile"><div class="lbl">SESSION QSOs</div><div class="ct-v" id="ct-session">0</div></div>
+        <div class="card ct-tile"><div class="lbl">LAST 60 MIN</div><div class="ct-v cyan" id="ct-60">0</div></div>
+        <div class="card ct-tile"><div class="lbl">BEST HOUR</div><div class="ct-v amber" id="ct-best">0</div></div>
+        <div class="card ct-tile"><div class="lbl">BANDS</div><div class="ct-v" id="ct-nbands">0</div></div>
+      </div>
+      <div class="card ct-bands">
+        <div class="lbl">THIS RUN · BY BAND</div>
+        <div class="ct-bars" id="ct-bars"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── SECTION 00 · LIVE RADIO ────────────────────────────── -->
   <div class="section">
     <div class="sec-tag">SECTION 00 · LIVE RADIO</div>
