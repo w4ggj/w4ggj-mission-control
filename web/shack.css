@@ -274,3 +274,10 @@ body::before {
 .ct-s-item .l { font-family: var(--mono, monospace); font-size: 9px; letter-spacing: 1.5px; color: var(--muted, #7d8da3); }
 .ct-s-item .v { font-family: var(--stencil, sans-serif); font-size: 26px; line-height: 1.05; }
 .ct-s-run { margin-left: auto; font-family: var(--mono, monospace); font-size: 11px; letter-spacing: 1.5px; color: var(--muted, #7d8da3); }
+
+/* ── Config button (links to the dashboard Config page) ─────── */
+.cfg-btn {
+  text-decoration: none; color: var(--cyan-dim, #63b4b2);
+  font-family: var(--mono, monospace); font-size: 11px; letter-spacing: 1px; cursor: pointer;
+}
+.cfg-btn:hover { color: var(--cyan, #3fe0cf); border-color: var(--cyan, #3fe0cf); }

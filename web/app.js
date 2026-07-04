@@ -144,6 +144,7 @@ function renderMeters(el, meters) {
 /* ── live "new contact" celebration flash ─────────────────── */
 let flashTimer = null;
 function flashNewContact(q) {
+  if (CFG.enable_flash === false) return;
   const el = $('qso-flash');
   if (!el || !q || !q.call) return;
   const meta = [q.country, q.band, (q.mode || '').toUpperCase()].filter(Boolean).join(' · ');
@@ -165,12 +166,40 @@ function flashNewContact(q) {
 }
 
 /* ── render ───────────────────────────────────────────────── */
+/* ── live settings (from the shack Config page) ───────────── */
+let CFG = {};
+const SEC_TOGGLES = {
+  show_records: 'records-bar', show_radio: 'sec-radio', show_decodes: 'sec-decodes',
+  show_prop: 'sec-prop', show_log: 'sec-log', show_pota: 'sec-pota',
+  show_space: 'sec-space', show_map: 'sec-map', show_awards: 'sec-awards',
+  show_activity: 'sec-activity', show_psk: 'sec-psk',
+};
+function applySettings(c) {
+  for (const key in SEC_TOGGLES) {
+    const el = document.getElementById(SEC_TOGGLES[key]);
+    if (el) el.style.display = (c[key] === false) ? 'none' : '';
+  }
+  const audio = document.getElementById('stream-wrap');
+  if (audio) audio.style.display = (c.show_audio === false) ? 'none' : '';
+}
+function maskCall(call) { return (CFG.show_calls === false) ? '•••' : call; }
+
 function render(s) {
   const id = s.identity || {};
   const r = s.radio || {};
   const sig = s.signal || {};
   const log = s.log || {};
   const sol = s.solar || {};
+
+  // live dashboard settings — apply section visibility first
+  CFG = s.settings || {};
+  applySettings(CFG);
+  if (CFG.subtitle) $('tb-sub').textContent = CFG.subtitle;
+  if (CFG.tagline) {
+    const parts = CFG.tagline.split('.');
+    $('tag-a').textContent = (parts[0] || '').trim() + (parts.length > 1 ? '.' : '');
+    $('tag-b').textContent = parts.slice(1).join('.').trim();
+  }
 
   // identity (once)
   if (firstLoad) {
@@ -220,7 +249,7 @@ function render(s) {
   if (sec00) sec00.textContent = (r.online && r.freq_mhz) ? 'On The Air Now' : 'Offline';
 
   // ── live radio ──
-  $('freq').textContent = fmtFreq(r.freq_mhz);
+  $('freq').textContent = (CFG.show_freq === false) ? '••.•••' : fmtFreq(r.freq_mhz);
   $('chip-band').textContent = r.band || '—';
   $('chip-mode').textContent = r.mode || '—';
   const txrx = $('chip-txrx');
@@ -250,7 +279,7 @@ function render(s) {
 
   if (inDigital && r.dx_call) {
     $('chip-dx-wrap').style.display = 'flex';
-    $('chip-dx').textContent = 'WORKING ' + r.dx_call + (r.report ? ' · ' + r.report : '');
+    $('chip-dx').textContent = 'WORKING ' + maskCall(r.dx_call) + (r.report ? ' · ' + r.report : '');
   } else {
     $('chip-dx-wrap').style.display = 'none';
   }
@@ -335,7 +364,7 @@ function render(s) {
       if (fresh && i === 0) tr.className = 'fresh';
       tr.innerHTML =
         `<td>${fmtDate(q.date)}</td><td>${fmtTime(q.time)}</td>` +
-        `<td class="call">${q.call}</td><td>${q.band}</td><td>${q.mode}</td>` +
+        `<td class="call">${maskCall(q.call)}</td><td>${q.band}</td><td>${q.mode}</td>` +
         `<td>${q.rst_s || ''}${q.rst_r ? '/' + q.rst_r : ''}</td><td style="color:var(--muted)">${q.country || ''}</td>`;
       lb.appendChild(tr);
     });
@@ -421,7 +450,9 @@ function renderContest(c) {
   const now = Date.now() / 1000;
   const fresh = c.last_ts && (now - c.last_ts) < 21600;   // fade out ~6h after last QSO
   const minShow = (c.min_show == null) ? 5 : c.min_show;
-  if (!c.session || c.session < minShow || !fresh) { sec.style.display = 'none'; return; }
+  if (CFG.show_contest === false || !c.session || c.session < minShow || !fresh) {
+    sec.style.display = 'none'; return;
+  }
   sec.style.display = '';
 
   $('ct-rate').textContent = c.rate_10 || 0;
@@ -709,7 +740,8 @@ async function pollScope() {
     const r = await fetch('/api/spectrum', { cache: 'no-store' });
     const frame = await r.json();
     const fresh = frame && frame.bins && frame.bins.length &&
-      (Date.now()/1000 - (frame.recv_ts || frame.ts || 0)) < 12;
+      (Date.now()/1000 - (frame.recv_ts || frame.ts || 0)) < 12 &&
+      CFG.show_scope !== false;
     const card = $('scope-card');
     if (fresh) { if (card.style.display === 'none') card.style.display = ''; drawScope(frame); }
     else if (card.style.display !== 'none') card.style.display = 'none';

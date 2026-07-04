@@ -11,6 +11,10 @@ station.config.json
 analytics_data.json
 analytics_data.tmp
 
+# ── live dashboard settings (operator-authored via the Config page) ──
+settings.json
+settings.tmp
+
 # ── TLS certs ──
 *.pem
 

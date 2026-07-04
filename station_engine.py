@@ -73,6 +73,90 @@ def cfg(key, default=None):
     return CONFIG.get(key, default)
 
 
+# ── Live dashboard settings (the shack Config page) ───────────────────────────
+# Operator-tunable switches that shape the PUBLIC page. Authored on the home
+# agent (via the shack's local Config page → POST /api/settings), persisted to
+# settings.json, and relayed to the cloud with the telemetry push (settings is an
+# INGEST section), so a toggle on the shack LAN reflects on the public site within
+# a second. Everything defaults ON (full display). The cloud is read-only for
+# these — the agent is authoritative and overwrites them on each ingest.
+_SETTINGS_FILE = HERE / "settings.json"
+DEFAULT_SETTINGS = {
+    # public-page section visibility
+    "show_records": True, "show_radio": True, "show_decodes": True,
+    "show_prop": True, "show_log": True, "show_pota": True, "show_space": True,
+    "show_map": True, "show_awards": True, "show_activity": True, "show_psk": True,
+    "show_contest": True, "show_audio": True, "show_scope": True,
+    # privacy
+    "show_freq": True,        # off → mask the exact frequency readout
+    "show_calls": True,       # off → mask recent worked callsigns
+    # features
+    "enable_flash": True,     # new-contact flash celebration
+    # contest panel tuning (live)
+    "contest_min_qsos": 5, "contest_gap_min": 60,
+    # live text (blank → use the station identity from config)
+    "tagline": "", "subtitle": "",
+}
+
+
+def load_settings():
+    s = dict(DEFAULT_SETTINGS)
+    try:
+        raw = json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
+        for k, v in raw.items():
+            if k in DEFAULT_SETTINGS:
+                s[k] = v
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[engine] settings load failed ({e})")
+    return s
+
+
+SETTINGS = load_settings()
+
+
+def get_settings():
+    with _lock:
+        return dict(STATE["settings"])
+
+
+def update_settings(patch):
+    """Validate + apply a settings patch, persist it, return what changed."""
+    changed = {}
+    with _lock:
+        s = STATE["settings"]
+        for k, v in (patch or {}).items():
+            if k not in DEFAULT_SETTINGS:
+                continue
+            d = DEFAULT_SETTINGS[k]
+            if isinstance(d, bool):
+                v = bool(v)
+            elif isinstance(d, int):
+                try:
+                    v = max(0, int(v))
+                except (TypeError, ValueError):
+                    continue
+            elif isinstance(d, str):
+                v = str(v)[:120]
+            s[k] = v
+            changed[k] = v
+    if changed:
+        _save_settings()
+    return changed
+
+
+def _save_settings():
+    with _lock:
+        data = dict(STATE["settings"])
+    try:
+        tmp = _SETTINGS_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(_SETTINGS_FILE)
+    except Exception as e:
+        print(f"[engine] settings save failed ({e})")
+
+
 # ── Shared state ──────────────────────────────────────────────────────────────
 _lock = threading.Lock()
 STATE = {
@@ -178,6 +262,8 @@ STATE = {
     "pota": [],                 # live POTA spots
     "iss": {"lat": None, "lon": None, "alt_km": None, "vel_kmh": None, "range_km": None},
     "dx": [],                   # recent DX cluster spots
+    # live dashboard settings (shack Config page → shapes the public page)
+    "settings": SETTINGS,
     "server_time": 0,
     "engine_started": 0,
 }
@@ -610,7 +696,8 @@ def _compute_contest(qsos):
     mode. A 'session' is the current run of QSOs with no gap longer than
     contest_gap_min (default 60m) — so it spans a UTC-midnight contest but resets
     once you stop operating for a while. Caller holds _lock."""
-    gap_sec = float(cfg("contest_gap_min", 60)) * 60
+    st = STATE["settings"]
+    gap_sec = float(st.get("contest_gap_min") or cfg("contest_gap_min", 60)) * 60
     active_sec = float(cfg("contest_active_min", 45)) * 60
     now = time.time()
     ev = []
@@ -659,8 +746,8 @@ def _compute_contest(qsos):
         "best_hour": best_hour,
         "last_ts": last_ts,
         # The panel shows once a run reaches this many QSOs, so a couple of casual
-        # ragchews don't trip it. Tune with contest_min_qsos (0 = always show a run).
-        "min_show": int(cfg("contest_min_qsos", 5)),
+        # ragchews don't trip it. Live-tunable from the Config page (0 = any run).
+        "min_show": int(st.get("contest_min_qsos", cfg("contest_min_qsos", 5))),
         "updated": now,
     })
 
@@ -1804,7 +1891,7 @@ def _dx_loop():
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
 INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards",
-                   "activity", "records", "contest")
+                   "activity", "records", "contest", "settings")
 
 
 def ingest(sections):
