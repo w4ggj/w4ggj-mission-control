@@ -1,2 +1,11 @@
-# W4GGJ Mission Control has NO third-party dependencies — Python standard library only.
-# This file exists so Render detects a Python service. Nothing to install.
+# W4GGJ Mission Control runs on the Python standard library alone — the engine,
+# web server, cloner and agents need nothing else.
+#
+# certifi is the one optional helper: on Windows, Python often ships without a
+# usable CA bundle, so verifying public HTTPS feeds (hamqsl solar, POTA,
+# wheretheiss) and the cloud push fails with:
+#   [SSL: CERTIFICATE_VERIFY_FAILED] unable to get local issuer certificate
+# certifi supplies Mozilla's CA bundle and the code uses it automatically when
+# present (and falls back to the system store when it isn't). Harmless on
+# Linux/Render. Install on the station PC with:  pip install certifi
+certifi
