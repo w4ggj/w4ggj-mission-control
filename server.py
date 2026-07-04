@@ -101,7 +101,7 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json; charset=utf-8")
             return
 
-        # Clean routes: /console, /analytics, /config → their .html
+        # Clean routes: /console, /analytics, /config, /features → their .html
         route = path
         if path == "/console":
             path = "/console.html"
@@ -109,6 +109,8 @@ class Handler(BaseHTTPRequestHandler):
             path = "/analytics.html"
         elif path == "/config":
             path = "/config.html"
+        elif path == "/features":
+            path = "/features.html"
 
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         target = (WEB / rel).resolve()
