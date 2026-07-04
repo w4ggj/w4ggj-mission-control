@@ -222,10 +222,12 @@
     </div>
     <div class="card">
       <div class="lbl" style="margin-bottom:10px">📖 RECENT CONTACTS</div>
-      <table class="log-table">
-        <thead><tr><th>DATE</th><th>TIME</th><th>CALL</th><th>BAND</th><th>MODE</th><th>RST</th><th>COUNTRY</th></tr></thead>
-        <tbody id="log-body"><tr><td colspan="7" class="empty">No logbook loaded yet…</td></tr></tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="log-table">
+          <thead><tr><th>DATE</th><th>TIME</th><th>CALL</th><th>BAND</th><th>MODE</th><th>RST</th><th>COUNTRY</th></tr></thead>
+          <tbody id="log-body"><tr><td colspan="7" class="empty">No logbook loaded yet…</td></tr></tbody>
+        </table>
+      </div>
       <div class="mono" style="font-size:10px;color:var(--muted);margin-top:10px">* Countries = approximate DXCC by callsign prefix. Source: <span id="l-path">—</span></div>
     </div>
   </div>
