@@ -281,7 +281,35 @@ function render(s) {
     dx.innerHTML = '<div class="empty">No DX spots yet.</div>';
   }
 
+  renderContest(s.contest || {});
+
   firstLoad = false;
+}
+
+/* ── contest / live-run strip ─────────────────────────────── */
+function renderContest(c) {
+  const strip = document.getElementById('ct-strip');
+  if (!strip) return;
+  const now = Date.now() / 1000;
+  const fresh = c.last_ts && (now - c.last_ts) < 21600;
+  const minShow = (c.min_show == null) ? 5 : c.min_show;
+  if (!c.session || c.session < minShow || !fresh) { strip.style.display = 'none'; return; }
+  strip.style.display = 'flex';
+  document.getElementById('ct-s-rate').textContent = c.rate_10 || 0;
+  document.getElementById('ct-s-session').textContent = c.session || 0;
+  document.getElementById('ct-s-60').textContent = c.last_60 || 0;
+  document.getElementById('ct-s-best').textContent = c.best_hour || 0;
+  document.getElementById('ct-s-bands').textContent = Object.keys(c.bands || {}).length;
+  const badge = document.getElementById('ct-s-badge');
+  if (badge) badge.classList.toggle('idle', !c.active);
+  const run = document.getElementById('ct-s-run');
+  if (run) {
+    if (c.session_start) {
+      const s = Math.max(0, Math.floor(now - c.session_start));
+      const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+      run.textContent = 'RUN ' + (h ? h + 'h ' + m + 'm' : m + 'm');
+    } else run.textContent = '';
+  }
 }
 
 /* ── SDR band scope (spectrum + waterfall) at the bottom of the freq card ── */
