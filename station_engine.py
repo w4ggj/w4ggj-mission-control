@@ -2033,6 +2033,7 @@ def _commander_bridge_loop():
     interval = float(cfg("commander_bridge_poll_sec", 0.5))
     sock = None
     last_sent = None
+    last_err_log = 0.0
     while True:
         try:
             with _lock:
@@ -2047,6 +2048,7 @@ def _commander_bridge_loop():
                 if key != last_sent:
                     if sock is None:
                         sock = socket.create_connection((host, port), timeout=4)
+                        last_err_log = 0.0        # let the next drop log promptly
                         print(f"[commander] bridge connected {host}:{port}")
                     if cmode:
                         params = (f"<xcvrfreq:{len(khz)}>{khz}"
@@ -2065,7 +2067,13 @@ def _commander_bridge_loop():
                     pass
             sock = None
             last_sent = None           # resend current dial as soon as we reconnect
-            print(f"[commander] bridge offline ({e}) — retry in 5s")
+            # Keep retrying every 5s (so it reconnects fast when you open
+            # Commander) but log at most once a minute so a digital session with
+            # Commander closed doesn't spam the agent console.
+            now = time.time()
+            if now - last_err_log > 60:
+                print(f"[commander] bridge offline ({e}) — retrying quietly every 5s")
+                last_err_log = now
             time.sleep(5)
 
 
