@@ -110,7 +110,7 @@ def main():
             "engine_udp_port":    engine_port,
             "callsign":           engine.cfg("callsign", "W4GGJ"),
             "grid":               engine.cfg("grid", "EL87"),
-        })
+        }, on_remote=engine.mark_field_telemetry)
         print(f"[agent] cloner ON — point WSJT-X at UDP "
               f"{engine.cfg('cloner_local_port', 2235)} (it relays to the "
               f"dashboard on {engine_port} + your other apps)")

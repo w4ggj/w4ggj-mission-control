@@ -33,6 +33,7 @@
     ]},
     { title: 'Features', items: [
       ['enable_flash', 'New-contact flash', 'toggle', 'The celebration popup when a QSO lands'],
+      ['portable_audio', 'Portable audio (SDR feed)', 'toggle', 'Keep Listen-Live visible during a field op — for a routed SDR audio stream'],
     ]},
     { title: 'Contest panel tuning', items: [
       ['contest_min_qsos', 'Min QSOs to show the panel', 'num', '0 = show any run'],

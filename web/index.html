@@ -49,6 +49,7 @@
   </div>
   <div class="spacer"></div>
   <div class="clock"><span id="utc">--:--:--</span><small>UTC</small></div>
+  <div class="pill portable-pill" id="portable-pill" style="display:none"><span class="dot portable-dot"></span><span id="portable-txt">PORTABLE</span></div>
   <div class="pill" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-txt">CONNECTING</span></div>
   <div class="pill" id="onair"><span class="dot" id="air-dot"></span><span id="air-txt">OFFLINE</span></div>
 </div>
@@ -141,7 +142,7 @@
           <div class="chips" id="chip-meters"></div>
         </div>
         <div class="stream-wrap" id="stream-wrap">
-          <div class="lbl" style="margin-bottom:8px">🔊 STATION AUDIO</div>
+          <div class="lbl" style="margin-bottom:8px" id="audio-lbl">🔊 STATION AUDIO</div>
           <button id="stream-btn" class="stream-btn" type="button" aria-label="Play live station audio">
             <span class="stream-ico">▶</span>
             <span class="stream-eq"><i></i><i></i><i></i><i></i></span>

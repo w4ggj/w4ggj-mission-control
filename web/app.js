@@ -193,11 +193,30 @@ function render(s) {
   // live dashboard settings — apply section visibility first
   CFG = s.settings || {};
   applySettings(CFG);
-  if (CFG.subtitle) $('tb-sub').textContent = CFG.subtitle;
   if (CFG.tagline) {
     const parts = CFG.tagline.split('.');
     $('tag-a').textContent = (parts[0] || '').trim() + (parts.length > 1 ? '.' : '');
     $('tag-b').textContent = parts.slice(1).join('.').trim();
+  }
+
+  // ── portable / field op ──
+  // While live telemetry is arriving from the field unit, flip the header to the
+  // portable label, light the PORTABLE badge, and hide the (home-only) audio.
+  const fld = s.field || {};
+  const sub = fld.active ? (fld.label || 'POTA · PORTABLE')
+                         : (CFG.subtitle || id.subtitle || '');
+  if (sub) $('tb-sub').textContent = sub;
+  const pp = $('portable-pill');
+  if (pp) pp.style.display = fld.active ? '' : 'none';
+  // Listen-Live: at home, follow show_audio. In the field it's a home stream, so
+  // hide it unless portable_audio is on (an SDR feed routed to the stream) — then
+  // keep it visible and relabel it as the SDR feed.
+  const audioWrap = $('stream-wrap');
+  if (audioWrap) {
+    const showAudio = fld.active ? (CFG.portable_audio === true) : (CFG.show_audio !== false);
+    audioWrap.style.display = showAudio ? '' : 'none';
+    const albl = $('audio-lbl');
+    if (albl) albl.textContent = fld.active ? '🌊 SDR AUDIO · FOLLOWING FIELD' : '🔊 STATION AUDIO';
   }
 
   // identity (once)

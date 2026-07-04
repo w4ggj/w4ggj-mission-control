@@ -56,6 +56,7 @@ BLOG_FOLDER = ""            # "" -> park-ref watcher disabled
 SCAN_INTERVAL = 30
 MY_CALLSIGN = "W4GGJ"
 MY_GRID = "EL87"
+ON_REMOTE = None            # optional callback fired on each remote/field packet
 
 WSJTX_MAGIC = 0xADBCCBDA
 TYPE_QSO_LOGGED = 5
@@ -336,6 +337,11 @@ def listen_remote():
         data, _ = s.recvfrom(65535)
         forward(data)
         handle_adif(data)
+        if ON_REMOTE:
+            try:
+                ON_REMOTE()          # flag the engine: telemetry is from the field
+            except Exception:
+                pass
         cnt["remote"] += 1
         if cnt["remote"] % 1000 == 0:
             print(f"[cloner] remote {cnt['remote']} packets | {cnt['adif']} QSOs logged")
@@ -699,7 +705,7 @@ def listen_web_bridge():
 #  ENTRY POINT
 # ─────────────────────────────────────────────
 
-def start(cfg):
+def start(cfg, on_remote=None):
     """Configure from a settings dict and launch the cloner's daemon threads.
 
     Recognized cfg keys (all optional except that ports must not clash):
@@ -710,10 +716,15 @@ def start(cfg):
       cloner_blog_folder  -> "" disables the park-ref watcher
       cloner_scan_sec, callsign, grid
 
+    on_remote: optional no-arg callback fired on every packet received on the
+    remote/field port — the agent wires this to the engine so the dashboard can
+    detect a portable (field) op and flip into "POTA · PORTABLE" mode.
+
     Returns the list of started threads (daemons). The caller owns the main loop.
     """
-    global PORT_LOCAL, PORT_REMOTE, PORT_BRIDGE, TARGETS
+    global PORT_LOCAL, PORT_REMOTE, PORT_BRIDGE, TARGETS, ON_REMOTE
     global ADIF_OUTPUT_PATH, BLOG_FOLDER, SCAN_INTERVAL, MY_CALLSIGN, MY_GRID
+    ON_REMOTE = on_remote
 
     PORT_LOCAL = int(cfg.get("cloner_local_port", 2235))
     PORT_REMOTE = int(cfg.get("cloner_remote_port", 2234))
