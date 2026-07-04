@@ -2168,21 +2168,27 @@ def _flrig_loop():
                 sunits = str(rig.get_Sunits()).replace(" ", "").upper()  # "S0".."S9"
                 pset = _flrig_num(rig.get_power())       # power-knob setting (watts)
 
-                meters = {}
+                # PO/SWR only read valid on TX — grab them while transmitting.
+                po = swr = None
                 if tx:
                     po = _flrig_num(rig.get_pwrmeter())
-                    if po and po > 0:
-                        meters["PO"] = f"{round(po / 100 * max_w)} W"
                     swr = _flrig_num(rig.get_SWR())      # real SWR ratio, e.g. 1.3
-                    if swr and swr >= 1.0:
-                        meters["SWR"] = f"{swr:.1f}"
 
                 _, pct = _flrig_smeter(sm)
                 lbl = sunits if re.match(r"^S\d", sunits) else _flrig_smeter(sm)[0]
                 with _lock:
                     rd = STATE["radio"]
                     rd["cat_online"] = True
-                    rd["meters"] = meters
+                    # Keep PO/SWR on the card between overs: only refresh them while
+                    # actually transmitting (that's when the meters read real
+                    # values); on RX the last transmit's readings are held.
+                    if tx:
+                        held = dict(rd.get("meters") or {})
+                        if po and po > 0:
+                            held["PO"] = f"{round(po / 100 * max_w)} W"
+                        if swr and swr >= 1.0:
+                            held["SWR"] = f"{swr:.1f}"
+                        rd["meters"] = held
                     if pset is not None:
                         rd["power_w"] = round(pset)
                     if mode:
