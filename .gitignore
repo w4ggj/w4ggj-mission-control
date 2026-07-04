@@ -7,6 +7,10 @@ station.config.json
 *.env
 .env
 
+# ── runtime data (visitor analytics store, regenerated at runtime) ──
+analytics_data.json
+analytics_data.tmp
+
 # ── TLS certs ──
 *.pem
 

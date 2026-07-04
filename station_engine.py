@@ -17,10 +17,12 @@ No third-party packages required — Python standard library only.
 Author: built for W4GGJ / Joe
 """
 
+import hashlib
 import html
 import json
 import math
 import os
+import queue
 import re
 import socket
 import struct
@@ -201,6 +203,324 @@ def set_spectrum(frame):
 
 def get_spectrum():
     return _spectrum or {}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  Visitor analytics  (who's been on the PUBLIC page, and where from)
+# ══════════════════════════════════════════════════════════════════════════════
+# The public site is served by the cloud role, so visit events accumulate here.
+# Kept OUT of STATE/snapshot: it's private operator data, exposed only via the
+# token-gated /api/analytics endpoint (never the public /api/state). Each HTML
+# page GET calls record_visit(); a single background worker geolocates new IPs
+# through ip-api.com (free, no key) and caches the result so repeat visitors and
+# the fast /api/state pollers never trigger a lookup. Counters are lifetime and
+# persisted best-effort to analytics_data.json (survives restarts; the cloud
+# host's disk is wiped on redeploy, which just resets the stats — no secrets).
+_AN_FILE = HERE / "analytics_data.json"
+_AN_MAX_EVENTS = 400          # recent-visit rows kept for the table
+_AN_MAX_DAILY = 120           # days of the visits-per-day sparkline
+_an_lock = threading.Lock()
+_an_started = False
+_geo_q = queue.Queue()
+_analytics = {
+    "totals": {"views": 0},
+    "uniques": set(),          # distinct visitor hashes (lifetime)
+    "by_country": {},          # "US" -> count
+    "cc_names": {},            # "US" -> "United States" (for display)
+    "by_city": {},             # "City, Region, CC" -> {count, lat, lon, cc, city, region}
+    "by_page": {},             # "/" -> count
+    "by_ref": {},              # "google.com" -> count
+    "daily": {},               # "YYYY-MM-DD" (UTC) -> count
+    "events": [],              # recent visits (newest first)
+    "geo": {},                 # ip -> {country, cc, region, city, lat, lon, isp}
+    "first_ts": 0,
+}
+
+_BOT_RE = re.compile(
+    r"bot|crawl|spider|slurp|bing|yandex|duckduck|baidu|semrush|ahrefs|"
+    r"facebookexternalhit|python-|curl|wget|headless|monitor|uptime|pingdom",
+    re.I)
+_PAGE_LABELS = {
+    "/": "Home", "": "Home", "/index.html": "Home",
+    "/shack.html": "Shack", "/console": "Console", "/console.html": "Console",
+    "/analytics": "Analytics", "/analytics.html": "Analytics",
+}
+
+
+def _is_public_ip(ip):
+    """True for a routable IP we can geolocate (skip LAN / loopback / unknown)."""
+    if not ip or ":" in ip and ip.count(":") < 2:   # malformed
+        return False
+    if ip.startswith(("10.", "127.", "192.168.", "169.254.", "::1", "fc", "fd", "fe80")):
+        return False
+    if ip.startswith("172."):
+        try:
+            if 16 <= int(ip.split(".")[1]) <= 31:
+                return False
+        except (ValueError, IndexError):
+            return False
+    return "." in ip or ":" in ip
+
+
+def _mask_ip(ip):
+    """Redact the host part for display (203.0.113.0 / v6 /48)."""
+    if not ip:
+        return "—"
+    if "." in ip:
+        p = ip.split(".")
+        return ".".join(p[:3] + ["0"]) if len(p) == 4 else ip
+    if ":" in ip:
+        return ":".join(ip.split(":")[:3]) + "::"
+    return ip
+
+
+def _ua_summary(ua):
+    """Coarse browser · OS label from a User-Agent string (no libraries)."""
+    if not ua:
+        return "Unknown"
+    u = ua.lower()
+    if _BOT_RE.search(ua):
+        m = re.search(r"([a-z0-9]+bot|[a-z]+preview|facebookexternalhit|"
+                      r"semrush|ahrefs|uptimerobot|pingdom)", u)
+        return "Bot · " + (m.group(1) if m else "crawler")
+    if "edg/" in u:
+        br = "Edge"
+    elif "opr/" in u or "opera" in u:
+        br = "Opera"
+    elif "chrome/" in u and "chromium" not in u:
+        br = "Chrome"
+    elif "firefox/" in u:
+        br = "Firefox"
+    elif "safari/" in u:
+        br = "Safari"
+    else:
+        br = "Browser"
+    if "android" in u:
+        osn = "Android"
+    elif "iphone" in u or "ipad" in u or "ios" in u:
+        osn = "iOS"
+    elif "windows" in u:
+        osn = "Windows"
+    elif "mac os" in u or "macintosh" in u:
+        osn = "macOS"
+    elif "linux" in u:
+        osn = "Linux"
+    else:
+        osn = ""
+    return br + (" · " + osn if osn else "")
+
+
+def _ref_domain(referer, own_host):
+    """Bare hostname of an external referrer ('' for direct / same-site)."""
+    if not referer:
+        return ""
+    try:
+        host = urllib.parse.urlparse(referer).hostname or ""
+    except Exception:
+        return ""
+    host = host.lower().lstrip("www.")
+    if not host or (own_host and own_host.lower().endswith(host)):
+        return ""
+    return host
+
+
+def _ensure_analytics():
+    global _an_started
+    with _an_lock:
+        if _an_started:
+            return
+        _an_started = True
+        _analytics_load()
+        threading.Thread(target=_geo_worker, daemon=True).start()
+        threading.Thread(target=_analytics_saver, daemon=True).start()
+
+
+def record_visit(ip, path, referer, user_agent, host=""):
+    """Log one page view. Fast + fail-soft — called inline from the web handler."""
+    try:
+        _ensure_analytics()
+        now = time.time()
+        page = _PAGE_LABELS.get(path.split("?")[0], path.split("?")[0][:40] or "Home")
+        is_bot = bool(_BOT_RE.search(user_agent or ""))
+        vhash = hashlib.sha256((ip or "").encode("utf-8", "replace")).hexdigest()[:16]
+        ref = _ref_domain(referer, host)
+        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        with _an_lock:
+            geo = _analytics["geo"].get(ip)
+            ev = {
+                "ts": now, "page": page, "ip": _mask_ip(ip), "vhash": vhash,
+                "ua": _ua_summary(user_agent), "bot": is_bot, "ref": ref,
+                "country": (geo or {}).get("country", ""),
+                "cc": (geo or {}).get("cc", ""),
+                "city": (geo or {}).get("city", ""),
+                "region": (geo or {}).get("region", ""),
+            }
+            _analytics["events"].insert(0, ev)
+            del _analytics["events"][_AN_MAX_EVENTS:]
+            if not _analytics["first_ts"]:
+                _analytics["first_ts"] = now
+            # Bots are logged (visible in the table) but excluded from the tallies
+            # so the human numbers stay honest.
+            if not is_bot:
+                _analytics["totals"]["views"] += 1
+                _analytics["uniques"].add(vhash)
+                _analytics["by_page"][page] = _analytics["by_page"].get(page, 0) + 1
+                _analytics["daily"][day] = _analytics["daily"].get(day, 0) + 1
+                if len(_analytics["daily"]) > _AN_MAX_DAILY:
+                    for k in sorted(_analytics["daily"])[:-_AN_MAX_DAILY]:
+                        _analytics["daily"].pop(k, None)
+                if ref:
+                    _analytics["by_ref"][ref] = _analytics["by_ref"].get(ref, 0) + 1
+                if geo:
+                    _tally_geo(geo)
+            need_geo = geo is None and _is_public_ip(ip)
+        if need_geo:
+            _geo_q.put(ip)
+    except Exception:
+        pass   # analytics must never break a page load
+
+
+def _tally_geo(geo, n=1):
+    """Add n located visits to the country/city rollups (holds _an_lock)."""
+    cc = geo.get("cc") or "??"
+    _analytics["by_country"][cc] = _analytics["by_country"].get(cc, 0) + n
+    if geo.get("country"):
+        _analytics["cc_names"][cc] = geo["country"]
+    if geo.get("lat") is not None:
+        key = ", ".join(x for x in (geo.get("city"), geo.get("region"), cc) if x)
+        c = _analytics["by_city"].setdefault(
+            key, {"count": 0, "lat": geo.get("lat"), "lon": geo.get("lon"),
+                  "cc": cc, "city": geo.get("city", ""), "region": geo.get("region", "")})
+        c["count"] += n
+
+
+def _geo_worker():
+    """Serialize IP → location lookups (ip-api.com free tier: 45 req/min)."""
+    while True:
+        ip = _geo_q.get()
+        try:
+            with _an_lock:
+                if ip in _analytics["geo"]:
+                    continue
+            url = ("http://ip-api.com/json/" + urllib.parse.quote(ip) +
+                   "?fields=status,country,countryCode,regionName,city,lat,lon,isp")
+            raw = _get(url, timeout=8)
+            d = json.loads(raw.decode("utf-8", "replace"))
+            if d.get("status") != "success":
+                geo = {"country": "", "cc": "", "region": "", "city": "",
+                       "lat": None, "lon": None, "isp": ""}
+            else:
+                geo = {"country": d.get("country", ""), "cc": d.get("countryCode", ""),
+                       "region": d.get("regionName", ""), "city": d.get("city", ""),
+                       "lat": d.get("lat"), "lon": d.get("lon"), "isp": d.get("isp", "")}
+            with _an_lock:
+                _analytics["geo"][ip] = geo
+                # Back-fill the pending events for this IP + roll it into the
+                # located tallies once (the earlier record_visit couldn't).
+                vh = hashlib.sha256(ip.encode("utf-8", "replace")).hexdigest()[:16]
+                filled = 0
+                for ev in _analytics["events"]:
+                    if ev["vhash"] == vh and not ev["cc"] and not ev["country"]:
+                        ev.update({"country": geo["country"], "cc": geo["cc"],
+                                   "city": geo["city"], "region": geo["region"]})
+                        if not ev["bot"]:
+                            filled += 1
+                if filled and geo.get("cc"):
+                    _tally_geo(geo, filled)
+        except Exception:
+            with _an_lock:
+                _analytics["geo"].setdefault(ip, {"country": "", "cc": "", "region": "",
+                                                  "city": "", "lat": None, "lon": None})
+        finally:
+            time.sleep(1.4)   # stay well under the 45/min public-tier limit
+
+
+def analytics_summary():
+    """Aggregated dashboard payload for the token-gated /api/analytics."""
+    with _an_lock:
+        now = time.time()
+        cutoff = now - 86400
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        recent = [dict(e) for e in _analytics["events"]]
+        views_24h = sum(1 for e in _analytics["events"] if not e["bot"] and e["ts"] >= cutoff)
+        countries = sorted(_analytics["by_country"].items(), key=lambda kv: -kv[1])
+        cc_names = _analytics["cc_names"]
+        cities = sorted(_analytics["by_city"].values(), key=lambda c: -c["count"])
+        pages = sorted(_analytics["by_page"].items(), key=lambda kv: -kv[1])
+        refs = sorted(_analytics["by_ref"].items(), key=lambda kv: -kv[1])
+        points = [{"lat": c["lat"], "lon": c["lon"], "count": c["count"],
+                   "label": ", ".join(x for x in (c["city"], c["region"], c["cc"]) if x)}
+                  for c in cities if c.get("lat") is not None]
+        daily = dict(sorted(_analytics["daily"].items()))
+        return {
+            "totals": {
+                "views": _analytics["totals"]["views"],
+                "uniques": len(_analytics["uniques"]),
+                "today": _analytics["daily"].get(today, 0),
+                "views_24h": views_24h,
+                "countries": len(_analytics["by_country"]),
+            },
+            "since": _analytics["first_ts"] or None,
+            "server_time": now,
+            "countries": [{"cc": cc, "count": n, "name": cc_names.get(cc, "")}
+                          for cc, n in countries[:60]],
+            "cities": cities[:40],
+            "pages": [{"page": p, "count": n} for p, n in pages],
+            "referrers": [{"host": h, "count": n} for h, n in refs[:20]],
+            "points": points,
+            "daily": daily,
+            "recent": recent[:120],
+        }
+
+
+def _analytics_load():
+    try:
+        d = json.loads(_AN_FILE.read_text(encoding="utf-8"))
+        _analytics["totals"] = d.get("totals", {"views": 0})
+        _analytics["uniques"] = set(d.get("uniques", []))
+        _analytics["by_country"] = d.get("by_country", {})
+        _analytics["cc_names"] = d.get("cc_names", {})
+        _analytics["by_city"] = d.get("by_city", {})
+        _analytics["by_page"] = d.get("by_page", {})
+        _analytics["by_ref"] = d.get("by_ref", {})
+        _analytics["daily"] = d.get("daily", {})
+        _analytics["events"] = d.get("events", [])[:_AN_MAX_EVENTS]
+        _analytics["geo"] = d.get("geo", {})
+        _analytics["first_ts"] = d.get("first_ts", 0)
+        print(f"[engine] analytics restored ({_analytics['totals'].get('views', 0)} views)")
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[engine] analytics load failed ({e})")
+
+
+def _analytics_save():
+    with _an_lock:
+        d = {
+            "totals": _analytics["totals"],
+            "uniques": list(_analytics["uniques"]),
+            "by_country": _analytics["by_country"],
+            "cc_names": _analytics["cc_names"],
+            "by_city": _analytics["by_city"],
+            "by_page": _analytics["by_page"],
+            "by_ref": _analytics["by_ref"],
+            "daily": _analytics["daily"],
+            "events": _analytics["events"][:_AN_MAX_EVENTS],
+            "geo": _analytics["geo"],
+            "first_ts": _analytics["first_ts"],
+        }
+    try:
+        tmp = _AN_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(d), encoding="utf-8")
+        tmp.replace(_AN_FILE)
+    except Exception:
+        pass
+
+
+def _analytics_saver():
+    while True:
+        time.sleep(30)
+        _analytics_save()
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

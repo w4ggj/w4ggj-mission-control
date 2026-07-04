@@ -17,6 +17,7 @@ import json
 import os
 import ssl
 import threading
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -27,6 +28,10 @@ WEB = HERE / "web"
 
 ROLE = os.environ.get("ROLE", "local").lower()
 INGEST_TOKEN = os.environ.get("INGEST_TOKEN", "")
+# Gate for the private visitor-analytics view. Falls back to the ingest token so
+# no new secret is needed; set ANALYTICS_KEY to use a separate one. On the LAN
+# (local role) the analytics API is open — it's already behind your firewall.
+ANALYTICS_KEY = os.environ.get("ANALYTICS_KEY", "") or INGEST_TOKEN
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
@@ -50,8 +55,28 @@ class Handler(BaseHTTPRequestHandler):
             body = body.encode("utf-8", "replace")
         self.wfile.write(body)
 
+    def _client_ip(self):
+        # Render (and most proxies) put the real client first in X-Forwarded-For.
+        xff = self.headers.get("X-Forwarded-For", "")
+        if xff:
+            return xff.split(",")[0].strip()
+        return self.headers.get("X-Real-IP", "") or self.client_address[0]
+
     def do_GET(self):
         path = self.path.split("?")[0]
+
+        if path == "/api/analytics":
+            # Private visitor stats. Token-gated on the cloud; open on the LAN.
+            if ANALYTICS_KEY:
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                key = (q.get("key") or [""])[0] or self.headers.get("X-Analytics-Key", "")
+                if key != ANALYTICS_KEY:
+                    self._send(401, json.dumps({"error": "bad key"}),
+                               "application/json; charset=utf-8")
+                    return
+            self._send(200, json.dumps(engine.analytics_summary()),
+                       "application/json; charset=utf-8")
+            return
 
         if path == "/api/state":
             self._send(200, json.dumps(engine.snapshot()),
@@ -72,9 +97,12 @@ class Handler(BaseHTTPRequestHandler):
                        "application/json; charset=utf-8")
             return
 
-        # Clean route for the SDR console (in-shack): /console -> console.html
+        # Clean routes: /console -> console.html, /analytics -> analytics.html
+        route = path
         if path == "/console":
             path = "/console.html"
+        elif path == "/analytics":
+            path = "/analytics.html"
 
         rel = "index.html" if path in ("/", "") else path.lstrip("/")
         target = (WEB / rel).resolve()
@@ -85,7 +113,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if target.is_file():
             ctype = CONTENT_TYPES.get(target.suffix.lower(), "application/octet-stream")
-            self._send(200, target.read_bytes(), ctype, cache=(target.suffix != ".html"))
+            is_html = target.suffix == ".html"
+            # Count real page views (HTML documents only) — never static assets or
+            # the 1 Hz /api/state polls. The analytics page itself isn't counted.
+            if is_html and route not in ("/analytics", "/analytics.html"):
+                engine.record_visit(self._client_ip(), route,
+                                    self.headers.get("Referer", ""),
+                                    self.headers.get("User-Agent", ""),
+                                    self.headers.get("Host", ""))
+            self._send(200, target.read_bytes(), ctype, cache=not is_html)
         else:
             self._send(404, "not found")
 

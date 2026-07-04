@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4GGJ · Visitor Analytics</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+<style>
+  /* Analytics-only styling, on top of the shared mission-control theme. */
+  .an-wrap { position: relative; z-index: 1; max-width: 1320px; margin: 0 auto; padding: 18px 22px 90px; }
+  .an-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin: 6px 0 18px; }
+  .an-head h1 { font-family: var(--stencil); font-size: 30px; letter-spacing: 1px; }
+  .an-head .sub { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--muted); }
+  .an-head a { color: var(--cyan-dim); text-decoration: none; font-family: var(--mono); font-size: 11px; letter-spacing: 2px; }
+  .an-head a:hover { color: var(--cyan); }
+
+  .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin-bottom: 16px; }
+  .tile { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .tile .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 2.5px; color: var(--muted); }
+  .tile .big { font-family: var(--stencil); font-size: 40px; line-height: 1.02; color: var(--cyan); margin-top: 4px; }
+  .tile.amber .big { color: var(--amber-soft); }
+
+  .cols { display: grid; grid-template-columns: 1.55fr 1fr; gap: 16px; align-items: start; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px 16px; }
+  .panel h2 { font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--cyan-dim); font-weight: 400; margin-bottom: 10px; text-transform: uppercase; }
+  .panel h2 .n { color: var(--muted); }
+
+  .map-panel svg { width: 100%; height: auto; display: block; border-radius: 10px; background: #060a11; }
+  .dot { fill: var(--amber); fill-opacity: .82; stroke: #1a0f00; stroke-width: .5; }
+  .dot-glow { fill: var(--amber); fill-opacity: .14; }
+  .land { fill: #10202a; stroke: rgba(90,190,200,.22); stroke-width: .6; }
+  .home { fill: var(--cyan); stroke: #05141a; stroke-width: 1.4; }
+
+  table.an { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.an th { text-align: left; font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.5px; color: var(--muted); font-weight: 400; padding: 4px 8px; border-bottom: 1px solid var(--border); text-transform: uppercase; }
+  table.an td { padding: 5px 8px; border-bottom: 1px solid rgba(80,180,190,.07); vertical-align: middle; }
+  table.an tr:last-child td { border-bottom: none; }
+  table.an td.num { text-align: right; font-family: var(--mono); color: var(--cyan); }
+  .bar { position: relative; }
+  .bar .fill { position: absolute; inset: 0 auto 0 0; background: rgba(63,224,207,.10); border-radius: 4px; z-index: 0; }
+  .bar .txt { position: relative; z-index: 1; }
+  .flag { font-size: 16px; margin-right: 7px; }
+  .muted { color: var(--muted); }
+  .tag-bot { font-family: var(--mono); font-size: 9px; letter-spacing: 1px; color: var(--amber); border: 1px solid rgba(246,168,33,.4); border-radius: 4px; padding: 1px 4px; margin-left: 6px; }
+  .stack { display: grid; gap: 16px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 46px; margin-top: 6px; }
+  .spark i { flex: 1; background: linear-gradient(var(--cyan), rgba(63,224,207,.25)); border-radius: 2px 2px 0 0; min-height: 2px; opacity: .85; }
+  .recent-wrap { max-height: 620px; overflow-y: auto; }
+
+  .gate { max-width: 460px; margin: 12vh auto; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 16px; padding: 30px 28px; text-align: center; }
+  .gate h1 { font-family: var(--stencil); font-size: 26px; color: var(--cyan); margin-bottom: 6px; }
+  .gate p { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .gate input { width: 100%; background: #060a11; border: 1px solid var(--border-strong); border-radius: 9px; padding: 12px 14px; color: var(--text); font-family: var(--mono); font-size: 14px; letter-spacing: 1px; }
+  .gate button { margin-top: 12px; width: 100%; background: var(--cyan); color: #04231f; border: none; border-radius: 9px; padding: 12px; font-family: var(--stencil); font-size: 16px; letter-spacing: 1px; cursor: pointer; }
+  .gate button:hover { filter: brightness(1.08); }
+  .gate .err { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 16px; }
+  .hidden { display: none !important; }
+
+  .foot { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; margin-top: 22px; }
+
+  @media (max-width: 900px) {
+    .tiles { grid-template-columns: repeat(2, 1fr); }
+    .cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Key gate (shown until a valid key is supplied) ── -->
+<div class="gate hidden" id="gate">
+  <h1>📊 Analytics</h1>
+  <p>Private visitor stats for W4GGJ Mission Control. Enter your access key.</p>
+  <input id="gate-key" type="password" placeholder="access key" autocomplete="off" spellcheck="false">
+  <button id="gate-go">View analytics</button>
+  <div class="err" id="gate-err"></div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div class="an-wrap hidden" id="dash">
+  <div class="an-head">
+    <h1>📊 Visitor Analytics</h1>
+    <span class="sub" id="an-since">—</span>
+    <span style="flex:1"></span>
+    <a href="/">← back to dashboard</a>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="lbl">PAGE VIEWS</div><div class="big" id="t-views">—</div></div>
+    <div class="tile"><div class="lbl">UNIQUE VISITORS</div><div class="big" id="t-uniq">—</div></div>
+    <div class="tile amber"><div class="lbl">TODAY (UTC)</div><div class="big" id="t-today">—</div></div>
+    <div class="tile amber"><div class="lbl">LAST 24H</div><div class="big" id="t-24h">—</div></div>
+    <div class="tile"><div class="lbl">COUNTRIES</div><div class="big" id="t-cty">—</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="stack">
+      <div class="panel map-panel">
+        <h2>Where visitors are from <span class="n" id="m-count"></span></h2>
+        <svg id="map" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="spark" id="spark" title="visits per day"></div>
+        <div class="muted" style="font-family:var(--mono);font-size:9.5px;letter-spacing:1.5px;margin-top:5px;">VISITS PER DAY</div>
+      </div>
+      <div class="panel">
+        <h2>Recent visits</h2>
+        <div class="recent-wrap">
+          <table class="an"><thead><tr>
+            <th>WHEN</th><th>LOCATION</th><th>PAGE</th><th>DEVICE</th><th>IP</th>
+          </tr></thead><tbody id="recent"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div class="panel">
+        <h2>Top countries</h2>
+        <table class="an"><tbody id="countries"></tbody></table>
+      </div>
+      <div class="panel">
+        <h2>Top cities</h2>
+        <table class="an"><tbody id="cities"></tbody></table>
+      </div>
+      <div class="panel">
+        <h2>Pages</h2>
+        <table class="an"><tbody id="pages"></tbody></table>
+      </div>
+      <div class="panel">
+        <h2>Referrers</h2>
+        <table class="an"><tbody id="refs"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot" id="foot">W4GGJ MISSION CONTROL · VISITOR ANALYTICS</div>
+</div>
+
+<script src="/worldmap.js"></script>
+<script src="/analytics.js"></script>
+</body>
+</html>

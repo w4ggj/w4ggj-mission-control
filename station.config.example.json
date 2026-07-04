@@ -24,6 +24,9 @@
   "tailscale_ip": "",
   "use_https": true,
 
+  "_section_analytics": "=== VISITOR ANALYTICS (private /analytics page) ===",
+  "_analytics_note": "The public site records each page view and geolocates the visitor's IP (via ip-api.com, no key) so you can see who's been on it and where from. View it at /analytics on the cloud site — it's gated by a key you paste once. On Render set the ANALYTICS_KEY env var; if unset it reuses your INGEST_TOKEN, so by default just visit https://<your-site>/analytics and paste that token. On the LAN the page is open (already behind your firewall). No setting here — this note is just a pointer. Stats persist to analytics_data.json (gitignored) and reset when the cloud host redeploys.",
+
   "_section_wsjtx": "=== WSJT-X / JTDX UDP ===",
   "_wsjtx_note": "Agent runs on the station PC alongside WSJT-X. In WSJT-X Settings > Reporting set UDP Server 127.0.0.1 (localhost) and UDP Server port 2242. The agent binds 0.0.0.0:2242 to receive it.",
   "wsjtx_enabled": true,
