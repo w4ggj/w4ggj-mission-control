@@ -214,6 +214,11 @@ function render(s) {
     air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'STANDBY';
   }
 
+  // Section 00 heading follows the rig: "Offline" when the radio is down or has
+  // no frequency, otherwise the live "On The Air Now".
+  const sec00 = $('sec00-title');
+  if (sec00) sec00.textContent = (r.online && r.freq_mhz) ? 'On The Air Now' : 'Offline';
+
   // ── live radio ──
   $('freq').textContent = fmtFreq(r.freq_mhz);
   $('chip-band').textContent = r.band || '—';
