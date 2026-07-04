@@ -286,6 +286,9 @@ STATE = {
     "dx": [],                   # recent DX cluster spots
     # live dashboard settings (shack Config page → shapes the public page)
     "settings": SETTINGS,
+    # portable / field op — flips on when live telemetry arrives from the field
+    # unit (cloner's remote port) instead of the home rig. Shapes the header.
+    "field": {"active": False, "label": "", "since": 0, "last_ts": 0},
     "server_time": 0,
     "engine_started": 0,
 }
@@ -299,8 +302,34 @@ def _set(section, patch):
             STATE[section] = patch
 
 
+# ── Portable / field-op detection ─────────────────────────────────────────────
+# The cloner calls mark_field_telemetry() for every packet that arrives on its
+# remote/field port (2234), i.e. from the portable unit rather than the home rig.
+# _refresh_field() then flips STATE["field"].active on while packets are recent
+# and off after field_timeout_sec of silence — so the dashboard can switch the
+# header to a "POTA · PORTABLE" label and hide the (home-only) audio stream.
+def mark_field_telemetry():
+    with _lock:
+        STATE["field"]["last_ts"] = time.time()
+
+
+def _refresh_field():
+    """Recompute portable state from the last field packet. Caller holds _lock."""
+    f = STATE["field"]
+    now = time.time()
+    timeout = float(cfg("field_timeout_sec", 180))
+    active = bool(f["last_ts"]) and (now - f["last_ts"] <= timeout)
+    if active and not f["active"]:
+        f["since"] = now
+    elif not active:
+        f["since"] = 0
+    f["active"] = active
+    f["label"] = cfg("field_label", "POTA · PORTABLE") if active else ""
+
+
 def snapshot():
     with _lock:
+        _refresh_field()
         STATE["server_time"] = time.time()
         return json.loads(json.dumps(STATE, default=str))
 
@@ -1913,7 +1942,7 @@ def _dx_loop():
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
 INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards",
-                   "activity", "records", "contest", "settings")
+                   "activity", "records", "contest", "settings", "field")
 
 
 def ingest(sections):
@@ -1950,6 +1979,7 @@ def _ingest_watchdog():
 def home_telemetry():
     """Snapshot of just the sections the home agent pushes to the cloud."""
     with _lock:
+        _refresh_field()
         return {k: json.loads(json.dumps(STATE[k], default=str)) for k in INGEST_SECTIONS}
 
 

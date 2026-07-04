@@ -24,6 +24,11 @@
   "tailscale_ip": "",
   "use_https": true,
 
+  "_section_field": "=== PORTABLE / FIELD OP (auto POTA mode) ===",
+  "_field_note": "When your portable unit's WSJT-X pushes to the cloner's remote port (cloner_remote_port, default 2234) instead of the home rig, the dashboard auto-detects it and flips the header to field_label, lights a PORTABLE badge, and hides the home Listen-Live audio. It reverts to normal after field_timeout_sec of no field packets. Nothing to enable — it rides the existing cloner. In the field: point the portable WSJT-X UDP at this PC's cloner_remote_port, keep the agent running, and (to keep the live panel clean) shut down the home WSJT-X + Flrig. The map/log/awards still fill from QRZ as your field QSOs sync.",
+  "field_label": "POTA · PORTABLE",
+  "field_timeout_sec": 180,
+
   "_section_analytics": "=== VISITOR ANALYTICS (private /analytics page) ===",
   "_analytics_note": "The public site records each page view and geolocates the visitor's IP (via ip-api.com, no key) so you can see who's been on it and where from. View it at /analytics on the cloud site — it's gated by a key you paste once. On Render set the ANALYTICS_KEY env var; if unset it reuses your INGEST_TOKEN, so by default just visit https://<your-site>/analytics and paste that token. On the LAN the page is open (already behind your firewall). No setting here — this note is just a pointer. Stats persist to analytics_data.json (gitignored) and reset when the cloud host redeploys.",
 

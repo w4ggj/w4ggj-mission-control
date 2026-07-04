@@ -90,6 +90,8 @@ body::before {
 .dot.tx { background: var(--red); box-shadow: 0 0 12px var(--red); animation: pulse 0.7s infinite; }
 .pill.tx { color: var(--red); border-color: rgba(255, 77, 77, 0.5); }
 .pill.live { color: var(--green); }
+.pill.portable-pill { color: var(--amber); border-color: rgba(246, 168, 33, 0.5); }
+.portable-dot { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse 1.6s infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 
 /* ── Ticker ──────────────────────────────────────────────── */
