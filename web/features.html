@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>W4GGJ · Features — What You're Looking At</title>
+<meta name="description" content="A guide to everything on the W4GGJ Mission Control dashboard — every live panel and what it shows.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .fx-wrap { position: relative; z-index: 1; max-width: 920px; margin: 0 auto; padding: 22px 22px 90px; }
+  .fx-head { margin: 8px 0 6px; }
+  .fx-head .kick { font-family: var(--mono); font-size: 12px; letter-spacing: 4px; color: var(--cyan); }
+  .fx-head h1 { font-family: var(--stencil); font-size: clamp(30px, 6vw, 52px); line-height: 1.02; margin: 8px 0 10px; }
+  .fx-head p { color: var(--muted); font-size: 16px; max-width: 680px; line-height: 1.55; }
+  .fx-head a.back { color: var(--cyan-dim); text-decoration: none; font-family: var(--mono); font-size: 12px; letter-spacing: 2px; }
+  .fx-head a.back:hover { color: var(--cyan); }
+
+  .fx-group { margin-top: 30px; }
+  .fx-group > h2 {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--cyan-dim);
+    text-transform: uppercase; font-weight: 400; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  }
+  .fx {
+    display: grid; grid-template-columns: 52px 1fr; gap: 4px 16px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .fx .ico { grid-row: span 2; font-size: 26px; align-self: start; line-height: 1; padding-top: 2px; }
+  .fx h3 { font-family: var(--stencil); font-size: 20px; letter-spacing: .5px; }
+  .fx .tag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 1.5px; color: var(--muted); margin-left: 8px; }
+  .fx p { color: var(--text); font-size: 14.5px; line-height: 1.5; margin-top: 4px; opacity: .9; }
+  .fx p .hi { color: var(--cyan); }
+  .fx p .am { color: var(--amber); }
+
+  .fx-note { margin-top: 30px; background: rgba(63,224,207,.06); border: 1px solid var(--border-strong); border-radius: 14px; padding: 18px 20px; }
+  .fx-note h3 { font-family: var(--stencil); font-size: 19px; margin-bottom: 6px; }
+  .fx-note p { color: var(--muted); font-size: 14.5px; line-height: 1.55; }
+  .fx-foot { text-align: center; color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; margin-top: 26px; }
+  @media (max-width: 560px) { .fx { grid-template-columns: 1fr; } .fx .ico { grid-row: auto; } }
+</style>
+</head>
+<body>
+<div class="fx-wrap">
+  <div class="fx-head">
+    <div class="kick">W4GGJ · MISSION CONTROL</div>
+    <h1>What You're Looking At</h1>
+    <p>This dashboard streams a live amateur-radio station straight from the bench. Here's every panel on the public page, top to bottom, and what each one shows.</p>
+    <p style="margin-top:14px"><a class="back" href="/">← back to the dashboard</a></p>
+  </div>
+
+  <!-- ── Always on screen ── -->
+  <div class="fx-group">
+    <h2>Always on screen</h2>
+
+    <div class="fx"><div class="ico">📡</div>
+      <h3>Station header<span class="tag">PINNED</span></h3>
+      <p>Callsign and station tagline, a live <span class="hi">UTC clock</span>, and status pills — <span class="hi">LINKED</span> (the home agent is connected), <span class="hi">ON AIR / OFFLINE</span> (whether the rig is live), and <span class="am">PORTABLE</span> when operating from the field. It stays pinned to the top as you scroll.</p></div>
+
+    <div class="fx"><div class="ico">🛰️</div>
+      <h3>Ticker</h3>
+      <p>The scrolling status line under the header — station identity and mode at a glance.</p></div>
+
+    <div class="fx"><div class="ico">🏷️</div>
+      <h3>Station identity</h3>
+      <p>The hero block: callsign, motto, and the station facts — <span class="hi">location, grid, rig, power</span>, and total QSOs logged.</p></div>
+
+    <div class="fx"><div class="ico">🏆</div>
+      <h3>Records ribbon</h3>
+      <p>All-time milestones pulled live from the logbook: <span class="hi">total QSOs</span>, years on air, countries (DXCC), US states, grid squares, farthest DX, busiest day, and longest daily streak.</p></div>
+  </div>
+
+  <!-- ── The live station ── -->
+  <div class="fx-group">
+    <h2>The live station</h2>
+
+    <div class="fx"><div class="ico">📻</div>
+      <h3>Live Radio<span class="tag">SECTION 00</span></h3>
+      <p>The rig in real time — <span class="hi">frequency, band, mode</span>, transmit/receive state, and the control source. When the rig reports them, live <span class="am">power, SWR and S-meter</span> meters appear too. Voice or digital, it moves the instant the dial does.</p></div>
+
+    <div class="fx"><div class="ico">📶</div>
+      <h3>Signal · S-meter</h3>
+      <p>An analog-style S-meter gauge. On digital it tracks the strength of the latest decode; with rig control it shows the real hardware meter.</p></div>
+
+    <div class="fx"><div class="ico">🔊</div>
+      <h3>Listen Live audio</h3>
+      <p>A one-click stream of the station's receiver audio — hear what's coming out of the radio right now.</p></div>
+
+    <div class="fx"><div class="ico">🌊</div>
+      <h3>SDR band scope</h3>
+      <p>A live spectrum + waterfall panadapter from an SDR that follows the radio's frequency — shown when the SDR feed is running.</p></div>
+
+    <div class="fx"><div class="ico">📈</div>
+      <h3>Live Decodes<span class="tag">SECTION 01</span></h3>
+      <p>The digital waterfall feed — every signal WSJT-X decodes the moment it lands (time, <span class="hi">SNR</span>, frequency offset, message), with <span class="am">CQ calls highlighted</span>. Digital only; it pauses on voice.</p></div>
+  </div>
+
+  <!-- ── The logbook, visualized ── -->
+  <div class="fx-group">
+    <h2>The logbook, visualized</h2>
+
+    <div class="fx"><div class="ico">🏁</div>
+      <h3>Live Run</h3>
+      <p>Appears automatically during an active run of contacts. Shows your <span class="hi">rate in Q/hr</span> (last 10 min), the session tally, contacts in the last 60 minutes, your best rolling hour, and a per-band split. Hides itself when you stop.</p></div>
+
+    <div class="fx"><div class="ico">📖</div>
+      <h3>Logbook<span class="tag">SECTION 03</span></h3>
+      <p>Log totals — QSOs, unique calls, countries, bands, modes, best DX — and a live table of the most recent contacts, updating the instant a QSO is saved.</p></div>
+
+    <div class="fx"><div class="ico">🗺️</div>
+      <h3>World Reach map<span class="tag">SECTION 06</span></h3>
+      <p>Every grid the station has ever worked, glowing across a world map, with the newest QSOs <span class="hi">arcing out live</span> from Tampa Bay — plus the <span class="hi">grey line</span> (the day/night terminator) drawn where it falls right now.</p></div>
+
+    <div class="fx"><div class="ico">🥇</div>
+      <h3>Award Progress<span class="tag">SECTION 07</span></h3>
+      <p>Worked All States on a US map that lights up as states are worked, plus DXCC entities, Maidenhead grids, and 5-band WAS — all tallied live from the log.</p></div>
+
+    <div class="fx"><div class="ico">📊</div>
+      <h3>Activity<span class="tag">SECTION 08</span></h3>
+      <p>The station's rhythm: a contribution-style <span class="hi">calendar heatmap</span> of the last year, plus by-hour and by-year histograms and band/mode breakdowns.</p></div>
+  </div>
+
+  <!-- ── The world around it ── -->
+  <div class="fx-group">
+    <h2>The world around it</h2>
+
+    <div class="fx"><div class="ico">☀️</div>
+      <h3>Propagation<span class="tag">SECTION 02</span></h3>
+      <p>Live space weather from HamQSL — <span class="hi">solar flux</span>, K-index, sunspots, solar wind, and a band-by-band day/night conditions forecast.</p></div>
+
+    <div class="fx"><div class="ico">🌲</div>
+      <h3>Field Ops · POTA<span class="tag">SECTION 04</span></h3>
+      <p>Live Parks-On-The-Air spots — activators on the air worldwide, right now.</p></div>
+
+    <div class="fx"><div class="ico">🛰️</div>
+      <h3>Space Trackers<span class="tag">SECTION 05</span></h3>
+      <p>Live position of the <span class="hi">ISS</span>, its range from the station's grid, altitude and speed.</p></div>
+
+    <div class="fx"><div class="ico">🌐</div>
+      <h3>PSKReporter map<span class="tag">SECTION 09</span></h3>
+      <p>Where the station is <span class="hi">being heard right now</span> — live reception reports of signals it's transmitted, worldwide.</p></div>
+  </div>
+
+  <!-- ── Moments & modes ── -->
+  <div class="fx-group">
+    <h2>Moments &amp; modes</h2>
+
+    <div class="fx"><div class="ico">✨</div>
+      <h3>New-contact flash</h3>
+      <p>A little celebration pops up the instant a new QSO hits the log — call, band and mode.</p></div>
+
+    <div class="fx"><div class="ico">🎒</div>
+      <h3>Portable / POTA mode</h3>
+      <p>When the operator activates from the field, the dashboard <span class="am">detects it automatically</span> and flips into portable mode — the header relabels and a PORTABLE badge lights up.</p></div>
+  </div>
+
+  <div class="fx-note">
+    <h3>⚙️ Under the hood</h3>
+    <p>It's all driven by one self-hosted Python engine at the shack that reads the live rig (WSJT-X / Flrig) and the QRZ logbook in real time, then streams it to the cloud. No third-party dashboards — what you see is exactly what's happening at the bench.</p>
+  </div>
+
+  <div class="fx-foot">W4GGJ · MISSION CONTROL · <a href="/" style="color:var(--cyan-dim);text-decoration:none">LIVE DASHBOARD →</a></div>
+</div>
+</body>
+</html>
