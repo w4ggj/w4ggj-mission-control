@@ -56,9 +56,11 @@ body::before {
 
 .wrap { position: relative; z-index: 1; max-width: 1320px; margin: 0 auto; padding: 0 22px 80px; }
 
+/* ── Static header (top bar + ticker pinned together) ────── */
+.site-header { position: sticky; top: 0; z-index: 50; }
+
 /* ── Top bar ─────────────────────────────────────────────── */
 .topbar {
-  position: sticky; top: 0; z-index: 50;
   display: flex; align-items: center; gap: 18px;
   padding: 12px 22px;
   background: rgba(5, 7, 13, 0.86);
@@ -94,7 +96,8 @@ body::before {
 .ticker {
   overflow: hidden; white-space: nowrap;
   border-bottom: 1px solid var(--border);
-  background: rgba(8, 11, 19, 0.6);
+  background: rgba(8, 11, 19, 0.92);
+  backdrop-filter: blur(10px);
   font-family: var(--mono); font-size: 11px; letter-spacing: 3px; color: var(--cyan-dim);
   padding: 8px 0;
 }
@@ -130,8 +133,7 @@ body::before {
 .mono { font-family: var(--mono); }
 
 /* ── Hero ────────────────────────────────────────────────── */
-.hero { margin-top: 34px; display: grid; grid-template-columns: 1.5fr 1fr; gap: 30px; align-items: center; }
-@media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+.hero { margin-top: 34px; }
 .hero h1 {
   font-family: var(--stencil); font-size: clamp(64px, 13vw, 150px); line-height: 0.9;
   background: linear-gradient(180deg, #eaf6f4 20%, var(--cyan) 130%);

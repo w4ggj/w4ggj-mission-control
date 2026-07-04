@@ -37,7 +37,8 @@
 </head>
 <body>
 
-<!-- ── Top bar ─────────────────────────────────────────────── -->
+<!-- ── Static header — top bar + ticker, pinned to the top ── -->
+<header class="site-header">
 <div class="topbar">
   <div class="brand">
     <div class="logo">📡</div>
@@ -53,6 +54,7 @@
 </div>
 
 <div class="ticker"><span id="ticker">W4GGJ · MISSION CONTROL · LIVE STATION TELEMETRY · YAESU FT-450 · FT8 · HF · TAMPA BAY EL87 · ONE PYTHON ENGINE ·</span></div>
+</header>
 
 <div class="wrap">
 
@@ -74,12 +76,6 @@
         <div class="f"><div class="lbl">POWER</div><div class="v amber" id="f-pwr">—</div></div>
         <div class="f"><div class="lbl">QSOs LOGGED</div><div class="v cyan" id="f-qsos">—</div></div>
       </div>
-    </div>
-    <div class="grid g2">
-      <div class="card"><div class="lbl">UTC TIME</div><div class="big" id="q-utc">--:--</div></div>
-      <div class="card"><div class="lbl">SOLAR FLUX</div><div class="big amber" id="q-sfi">—</div></div>
-      <div class="card"><div class="lbl">KP INDEX</div><div class="big" id="q-kp">—</div></div>
-      <div class="card"><div class="lbl">ISS RANGE</div><div class="big green" id="q-iss">—</div></div>
     </div>
   </div>
 
