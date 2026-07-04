@@ -208,9 +208,16 @@ function render(s) {
   if (sub) $('tb-sub').textContent = sub;
   const pp = $('portable-pill');
   if (pp) pp.style.display = fld.active ? '' : 'none';
-  // Listen-Live is a home stream — hide it in the field (also honors show_audio).
+  // Listen-Live: at home, follow show_audio. In the field it's a home stream, so
+  // hide it unless portable_audio is on (an SDR feed routed to the stream) — then
+  // keep it visible and relabel it as the SDR feed.
   const audioWrap = $('stream-wrap');
-  if (audioWrap) audioWrap.style.display = (CFG.show_audio === false || fld.active) ? 'none' : '';
+  if (audioWrap) {
+    const showAudio = fld.active ? (CFG.portable_audio === true) : (CFG.show_audio !== false);
+    audioWrap.style.display = showAudio ? '' : 'none';
+    const albl = $('audio-lbl');
+    if (albl) albl.textContent = fld.active ? '🌊 SDR AUDIO · FOLLOWING FIELD' : '🔊 STATION AUDIO';
+  }
 
   // identity (once)
   if (firstLoad) {

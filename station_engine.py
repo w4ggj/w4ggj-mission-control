@@ -114,6 +114,7 @@ DEFAULT_SETTINGS = {
     "show_calls": True,       # off → mask recent worked callsigns
     # features
     "enable_flash": True,     # new-contact flash celebration
+    "portable_audio": False,  # keep Listen-Live visible in portable mode (SDR feed)
     # contest panel tuning (live)
     "contest_min_qsos": 5, "contest_gap_min": 60,
     # live text (blank → use the station identity from config)
