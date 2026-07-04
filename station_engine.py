@@ -1973,9 +1973,113 @@ def _flrig_loop():
             time.sleep(8)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  DXLab Commander bridge — feed a radio-less Commander for DXKeeper voice logging
+# ══════════════════════════════════════════════════════════════════════════════
+# The problem this solves: when Flrig owns the FT-450's CAT port (so the dashboard
+# keeps its live S-meter/power/SWR), DXKeeper can't auto-fill frequency + mode for
+# a VOICE QSO — that normally comes from DXLab Commander, which would need the same
+# single CAT port Flrig is holding. WSJT-X only feeds the logger when IT logs an
+# FT8 QSO (via SpotCollector), so voice contest logging is left typing frequencies.
+#
+# This bridge closes the gap without a second CAT app on the radio: it reads the
+# live dial + mode the engine already gets from Flrig and pushes them to a
+# *radio-less* Commander over its TCP command port (default 52002) using
+# CmdSetFreqMode. Commander then serves freq + mode to DXKeeper's Capture window on
+# demand — so voice QSOs auto-fill while Flrig and the meters stay untouched.
+# One-directional and fail-soft: if Commander isn't running it just retries quietly,
+# and it only transmits when the frequency or mode actually changes.
+#
+# Commander frequency format is kHz with 3 decimals; mode is a plain token (USB/
+# LSB/CW/…). Because Commander has no radio, each CmdSetFreqMode makes it briefly
+# flash a "Radio failed to QSY" notice — harmless (the value still lands in
+# DXKeeper). Point Commander's radio at "None" (or a nonexistent COM port) to keep
+# it off the real CAT port.
+
+def _commander_msg(command, params=""):
+    """Build one DXLab Commander TCP message in ADIF-field syntax."""
+    return f"<command:{len(command)}>{command}<parameters:{len(params)}>{params}"
+
+
+def _commander_mode(mode):
+    """Map the rig's mode string to a Commander mode token."""
+    m = (mode or "").strip().upper()
+    if not m:
+        return ""
+    if "USB" in m:
+        return "USB"
+    if "LSB" in m:
+        return "LSB"
+    if m.startswith(("CW-R", "CWR")):
+        return "CW-R"
+    if m.startswith("CW"):
+        return "CW"
+    if m.startswith(("RTTY-R", "RTTYR")):
+        return "RTTY-R"
+    if m.startswith("RTTY") or m.startswith("FSK"):
+        return "RTTY"
+    if m.startswith("FM"):
+        return "FM"
+    if m.startswith("AM"):
+        return "AM"
+    if "PKT" in m or "DATA" in m or "DIG" in m:
+        return "PKT"
+    return m
+
+
+def _commander_bridge_loop():
+    host = cfg("commander_host", "127.0.0.1")
+    port = int(cfg("commander_port", 52002))
+    interval = float(cfg("commander_bridge_poll_sec", 0.5))
+    sock = None
+    last_sent = None
+    last_err_log = 0.0
+    while True:
+        try:
+            with _lock:
+                rd = STATE["radio"]
+                hz = rd.get("dial_hz") or 0
+                mode = rd.get("mode") or ""
+                online = rd.get("online")
+            if online and hz:
+                khz = f"{hz / 1000.0:.3f}"
+                cmode = _commander_mode(mode)
+                key = (khz, cmode)
+                if key != last_sent:
+                    if sock is None:
+                        sock = socket.create_connection((host, port), timeout=4)
+                        last_err_log = 0.0        # let the next drop log promptly
+                        print(f"[commander] bridge connected {host}:{port}")
+                    if cmode:
+                        params = (f"<xcvrfreq:{len(khz)}>{khz}"
+                                  f"<xcvrmode:{len(cmode)}>{cmode}")
+                        sock.sendall(_commander_msg("CmdSetFreqMode", params).encode())
+                    else:
+                        params = f"<xcvrfreq:{len(khz)}>{khz}"
+                        sock.sendall(_commander_msg("CmdSetFreq", params).encode())
+                    last_sent = key
+            time.sleep(interval)
+        except Exception as e:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+            sock = None
+            last_sent = None           # resend current dial as soon as we reconnect
+            # Keep retrying every 5s (so it reconnects fast when you open
+            # Commander) but log at most once a minute so a digital session with
+            # Commander closed doesn't spam the agent console.
+            now = time.time()
+            if now - last_err_log > 60:
+                print(f"[commander] bridge offline ({e}) — retrying quietly every 5s")
+                last_err_log = now
+            time.sleep(5)
+
+
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
                  enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None,
-                 enable_hrd=None, enable_flrig=None):
+                 enable_hrd=None, enable_flrig=None, enable_commander_bridge=None):
     STATE["engine_started"] = time.time()
     if enable_wsjtx is None:
         enable_wsjtx = cfg("wsjtx_enabled", True)
@@ -1988,6 +2092,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         enable_hrd = cfg("hrd_enabled", False)
     if enable_flrig is None:
         enable_flrig = cfg("flrig_enabled", False)
+    if enable_commander_bridge is None:
+        enable_commander_bridge = cfg("commander_bridge_enabled", False)
 
     threads = []
     if enable_wsjtx:
@@ -1998,6 +2104,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         threads.append(("hrd", _hrd_loop))
     if enable_flrig:
         threads.append(("flrig", _flrig_loop))
+    if enable_commander_bridge:
+        threads.append(("commander", _commander_bridge_loop))
     if enable_adif:
         threads.append(("adif", _adif_loop))
     if enable_qrz:

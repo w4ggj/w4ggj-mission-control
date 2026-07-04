@@ -188,6 +188,7 @@ def main():
         # agent's ingest (the radio section), not from the cloud itself.
         engine.start_engine(enable_wsjtx=False, enable_adif=False,
                             enable_rigctld=False, enable_hrd=False, enable_qrz=False,
+                            enable_commander_bridge=False,
                             enable_pollers=True, enable_ingest_watchdog=True)
         port = int(os.environ.get("PORT", cfg.get("web_port", 8770)))
         host = "0.0.0.0"

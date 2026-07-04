@@ -84,6 +84,13 @@
   "flrig_poll_sec": 1.0,
   "_flrig_note": "Flrig controls the FT-450 and publishes frequency, mode, PTT and — unlike HRD — the REAL S-meter, power-out and SWR over XML-RPC (default port 12345). Run Flrig as your rig controller instead of HRD, then set flrig_enabled=true and turn hrd_enabled + rigctld_enabled OFF (one rig source at a time). In Flrig enable meter polling (Config > Setup > Polling: check s-meter/power/swr). Point WSJT-X at Rig='FLRig FLRig' (127.0.0.1). Gives a live S-meter on voice AND digital.",
 
+  "_section_commander": "=== DXLAB COMMANDER BRIDGE (voice-logging frequency for DXKeeper) ===",
+  "_commander_note": "For voice contesting with DXLab DXKeeper while Flrig keeps the radio (and the dashboard's live meters). Flrig owns the FT-450's CAT port, so DXKeeper can't auto-fill freq/mode for a VOICE QSO — that comes from DXLab Commander, which would need the same port. Set commander_bridge_enabled=true and run Commander with its radio set to 'None' (or a nonexistent COM port) so it never grabs the CAT port. The agent then reads the live dial+mode (from Flrig) and pushes them to Commander's TCP command port via CmdSetFreqMode, so Commander serves freq+mode to DXKeeper's Capture window on demand. Result: click Capture on a voice QSO and freq/band/mode are already filled, meters untouched. Radio-less Commander flashes a harmless 'Radio failed to QSY' notice on each change (the value still lands). commander_port = Commander's TCP base port + 2 (Net Serv window; default base 52000 -> 52002). Only the home agent runs this; the cloud never does.",
+  "commander_bridge_enabled": false,
+  "commander_host": "127.0.0.1",
+  "commander_port": 52002,
+  "commander_bridge_poll_sec": 0.5,
+
   "_section_polling": "=== POLL INTERVALS (seconds) ===",
   "poll_solar_sec": 600,
   "poll_pota_sec": 60,
