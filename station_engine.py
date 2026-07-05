@@ -1040,13 +1040,16 @@ def _wsjtx_loop():
                            time.time() - STATE["radio"]["last_seen"] > 30:
                             STATE["radio"]["online"] = False
                     continue
-                # WSJT-X telemetry from a public/remote source IS the field
-                # (portable) station — even when it reaches the engine port
-                # directly instead of via the cloner's remote port. Flip portable.
-                if _is_public_ip(_addr[0] if _addr else ""):
-                    if _addr[0] != field_src:
-                        field_src = _addr[0]
-                        print(f"[wsjtx] portable telemetry from {field_src} — field mode ON")
+                # WSJT-X telemetry from any NON-loopback source is the field
+                # (portable) station: home WSJT-X always reaches the engine as
+                # 127.0.0.1 (same PC, or re-emitted by the cloner), so anything
+                # arriving from a real remote address — public IP, VPN, Tailscale,
+                # or straight at the engine port — is the field. Flip portable.
+                src = _addr[0] if _addr else ""
+                if src and not src.startswith("127.") and src not in ("::1", "localhost"):
+                    if src != field_src:
+                        field_src = src
+                        print(f"[wsjtx] portable telemetry from {src} — field mode ON")
                     mark_field_telemetry()
                 _handle_wsjtx(data)
         except Exception as e:
