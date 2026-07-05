@@ -136,7 +136,7 @@ function render(s) {
     air.className = 'pill live'; airDot.className = 'dot live'; airTxt.textContent = 'ON AIR';
     freqPanel.classList.add('rx');
   } else {
-    air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'STANDBY';
+    air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'OFFLINE';
   }
 
   // frequency hero
@@ -155,7 +155,7 @@ function render(s) {
   const txrx = $('chip-txrx');
   if (r.tx) { txrx.textContent = 'TRANSMIT'; txrx.className = 'chip tx'; }
   else if (r.online) { txrx.textContent = 'RECEIVE'; txrx.className = 'chip rx'; }
-  else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
+  else { txrx.textContent = 'OFFLINE'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
   $('dxline').textContent = (inDigital && r.dx_call) ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
 

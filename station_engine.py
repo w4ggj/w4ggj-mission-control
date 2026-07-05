@@ -1977,6 +1977,35 @@ def _ingest_watchdog():
                 STATE["radio"]["source"] = "—"
 
 
+# No live rig data for this long → the radio is offline. Both WSJT-X (Status
+# packets) and Flrig (1 s polls) refresh last_seen well under this while running.
+RADIO_STALE_SEC = 20
+
+
+def _radio_watchdog():
+    """Flip the radio card to Offline when every rig source has gone quiet.
+
+    Individual source loops only clear their own 'cat_online' when they drop, and
+    the WSJT-X staleness check only fires while it's the active source — so with
+    WSJT-X + Flrig both closed nothing marked the radio offline and the card
+    froze on the last frequency. This source-agnostic watchdog watches last_seen
+    and clears the whole live-radio block (freq included) once it goes stale, so
+    closing the rig apps reads as Offline. Runs on the home agent / local (where
+    last_seen is set in local time), not the cloud."""
+    while True:
+        time.sleep(3)
+        with _lock:
+            rd = STATE["radio"]
+            if rd.get("online") and rd.get("last_seen") and \
+                    time.time() - rd["last_seen"] > RADIO_STALE_SEC:
+                rd.update({
+                    "online": False, "cat_online": False, "tx": False,
+                    "decoding": False, "source": "—",
+                    "dial_hz": 0, "rx_hz": 0, "freq_mhz": 0.0, "band": "—",
+                    "dx_call": "", "report": "", "digital_mode": "",
+                })
+
+
 def home_telemetry():
     """Snapshot of just the sections the home agent pushes to the cloud."""
     with _lock:
@@ -2321,8 +2350,13 @@ def _commander_bridge_loop():
 
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
                  enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None,
-                 enable_hrd=None, enable_flrig=None, enable_commander_bridge=None):
+                 enable_hrd=None, enable_flrig=None, enable_commander_bridge=None,
+                 enable_radio_watchdog=None):
     STATE["engine_started"] = time.time()
+    if enable_radio_watchdog is None:
+        # On by default wherever real rig sources run (agent/local); the cloud
+        # gets radio-offline from the ingest watchdog + the agent's own state.
+        enable_radio_watchdog = not enable_ingest_watchdog
     if enable_wsjtx is None:
         enable_wsjtx = cfg("wsjtx_enabled", True)
     if enable_rigctld is None:
@@ -2357,6 +2391,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
                     ("iss", _iss_loop), ("dx", _dx_loop)]
     if enable_ingest_watchdog:
         threads.append(("ingest-wd", _ingest_watchdog))
+    if enable_radio_watchdog:
+        threads.append(("radio-wd", _radio_watchdog))
 
     for name, fn in threads:
         threading.Thread(target=fn, name=name, daemon=True).start()
