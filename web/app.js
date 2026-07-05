@@ -258,7 +258,7 @@ function render(s) {
   } else if (r.online) {
     air.className = 'pill live'; airDot.className = 'dot live'; airTxt.textContent = 'ON AIR';
   } else {
-    air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'STANDBY';
+    air.className = 'pill'; airDot.className = 'dot'; airTxt.textContent = 'OFFLINE';
   }
 
   // Section 00 heading follows the rig: "Offline" when the radio is down or has
@@ -273,7 +273,7 @@ function render(s) {
   const txrx = $('chip-txrx');
   if (r.tx) { txrx.textContent = 'TRANSMIT'; txrx.className = 'chip tx'; }
   else if (r.online) { txrx.textContent = 'RECEIVE'; txrx.className = 'chip rx'; }
-  else { txrx.textContent = 'STANDBY'; txrx.className = 'chip'; }
+  else { txrx.textContent = 'OFFLINE'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
 
   // "In digital" is decided by the RIG mode (from CAT), NOT by whether WSJT-X is
