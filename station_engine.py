@@ -1029,6 +1029,7 @@ def _wsjtx_loop():
                 print(f"[wsjtx] joined multicast group {group}")
             sock.settimeout(5.0)
             print(f"[wsjtx] listening on UDP {host}:{port}")
+            field_src = None
             while True:
                 try:
                     data, _addr = sock.recvfrom(65535)
@@ -1039,6 +1040,14 @@ def _wsjtx_loop():
                            time.time() - STATE["radio"]["last_seen"] > 30:
                             STATE["radio"]["online"] = False
                     continue
+                # WSJT-X telemetry from a public/remote source IS the field
+                # (portable) station — even when it reaches the engine port
+                # directly instead of via the cloner's remote port. Flip portable.
+                if _is_public_ip(_addr[0] if _addr else ""):
+                    if _addr[0] != field_src:
+                        field_src = _addr[0]
+                        print(f"[wsjtx] portable telemetry from {field_src} — field mode ON")
+                    mark_field_telemetry()
                 _handle_wsjtx(data)
         except Exception as e:
             print(f"[wsjtx] socket error: {e} — retry in 5s")
