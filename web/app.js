@@ -262,9 +262,15 @@ function render(s) {
   }
 
   // Section 00 heading follows the rig: "Offline" when the radio is down or has
-  // no frequency, otherwise the live "On The Air Now".
+  // no frequency, otherwise the live "On The Air Now" — and "Portable" while a
+  // field station is feeding it, so the panel matches the header.
+  const onAir = r.online && r.freq_mhz;
   const sec00 = $('sec00-title');
-  if (sec00) sec00.textContent = (r.online && r.freq_mhz) ? 'On The Air Now' : 'Offline';
+  if (sec00) sec00.textContent = onAir ? (fld.active ? 'Portable · On The Air' : 'On The Air Now') : 'Offline';
+  const sec00d = $('sec00-desc');
+  if (sec00d) sec00d.textContent = fld.active
+    ? 'Live from the field — portable operation. As the dial moves, this moves.'
+    : 'Live from the Yaesu FT-450 — voice or digital. As the dial moves, this moves.';
 
   // ── live radio ──
   $('freq').textContent = (CFG.show_freq === false) ? '••.•••' : fmtFreq(r.freq_mhz);
