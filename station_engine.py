@@ -210,6 +210,7 @@ STATE = {
         "decoding": False,
         "dx_call": "",
         "report": "",
+        "dx_call_ts": 0,        # when dx_call was last set from N1MM (for expiry)
         "last_seen": 0,
         # live rig telemetry from Hamlib rigctld (optional)
         "cat_online": False,
@@ -2275,8 +2276,9 @@ def _flrig_loop():
 #
 # Wire formats: <Freq>/<TXFreq> are in TENS OF Hz (1407400 → 14 074 000 Hz =
 # 14.074 MHz). <IsTransmitting> gives live PTT; <IsRunning> is Run vs S&P. N1MM
-# also broadcasts contactinfo/score/spot/lookup packets on the same port — we only
-# act on <RadioInfo> and ignore the rest.
+# also broadcasts <lookupinfo> (the call you're looking up) and <contactinfo> (the
+# QSO you just logged) on the same port — we read the worked callsign from those to
+# light the card's DX-call slot, and ignore score/spot/replace/delete packets.
 
 def _n1mm_freq_hz(text):
     """N1MM <Freq>/<TXFreq> is in tens of Hz — convert to Hz."""
@@ -2317,6 +2319,30 @@ def _handle_n1mm_radioinfo(text):
                 rd["mode"] = mode
             # Run vs Search-and-Pounce, for the LIVE RUN contest panel.
             rd["run_state"] = "RUN" if running else "S&P"
+        # Expire the "working" call a couple of minutes after the last QSO/lookup,
+        # so it doesn't linger on the card once you stop. Only affects calls set by
+        # N1MM (dx_call_ts); WSJT-X's own dx_call handling is untouched.
+        if rd.get("dx_call") and rd.get("dx_call_ts") \
+                and time.time() - rd["dx_call_ts"] > 120:
+            rd["dx_call"] = ""
+            rd["report"] = ""
+            rd["dx_call_ts"] = 0
+
+
+def _handle_n1mm_contact(text, logged):
+    """Pull the worked callsign from an N1MM <lookupinfo> (live, as you type/look
+    up) or <contactinfo> (fired on log) packet and light the card's DX-call slot —
+    the same field WSJT-X drives on FT8, so voice/CW pileups show 'WORKING <call>'
+    too. On a logged contact we also carry the received exchange as the report."""
+    call = _n1mm_tag(text, "call").upper()
+    if not call:
+        return
+    rcv = _n1mm_tag(text, "rcv") if logged else ""
+    with _lock:
+        rd = STATE["radio"]
+        rd["dx_call"] = call
+        rd["report"] = rcv
+        rd["dx_call_ts"] = time.time()
 
 
 def _n1mm_loop():
@@ -2345,10 +2371,14 @@ def _n1mm_loop():
             time.sleep(2)
             continue
         text = data.decode("utf-8", "replace")
-        if "<RadioInfo" not in text:
-            continue          # ignore contactinfo/score/spot/lookup packets
         try:
-            _handle_n1mm_radioinfo(text)
+            if "<RadioInfo" in text:
+                _handle_n1mm_radioinfo(text)
+            elif "<lookupinfo" in text:
+                _handle_n1mm_contact(text, logged=False)   # call as you look it up
+            elif "<contactinfo" in text:
+                _handle_n1mm_contact(text, logged=True)     # call on log + exchange
+            # ignore contactreplace/contactdelete/spot/score/appinfo packets
         except Exception as e:
             print(f"[n1mm] parse error ({e})")
 
