@@ -157,7 +157,7 @@ function render(s) {
   else if (r.online) { txrx.textContent = 'RECEIVE'; txrx.className = 'chip rx'; }
   else { txrx.textContent = 'OFFLINE'; txrx.className = 'chip'; }
   $('chip-src').textContent = r.online ? (r.source || '—') : 'NO SIGNAL';
-  $('dxline').textContent = (inDigital && r.dx_call) ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
+  $('dxline').textContent = (r.online && r.dx_call) ? `▸ WORKING ${r.dx_call}${r.report ? ' · ' + r.report : ''}` : '';
 
   // live rig meters (power + SWR / ALC / S / … whatever Hamlib reports)
   const meters = {};

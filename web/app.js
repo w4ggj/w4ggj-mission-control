@@ -301,7 +301,9 @@ function render(s) {
   // them and flag it. The S-meter still runs off the rig meter either way.
   document.body.classList.toggle('voice-mode', !!r.online && !inDigital);
 
-  if (inDigital && r.dx_call) {
+  // Show the station being worked whenever one is set — FT8 fills it from WSJT-X,
+  // voice/CW fills it from N1MM (lookup/logged contact), so it lights on both.
+  if (r.online && r.dx_call) {
     $('chip-dx-wrap').style.display = 'flex';
     $('chip-dx').textContent = 'WORKING ' + maskCall(r.dx_call) + (r.report ? ' · ' + r.report : '');
   } else {
