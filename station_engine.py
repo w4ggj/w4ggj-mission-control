@@ -215,6 +215,7 @@ STATE = {
         "cat_online": False,
         "power_w": None,        # actual/set TX power in watts (None = not reported)
         "meters": {},           # {label: "value"} — SWR, ALC, S, Vd, … whatever the rig reports
+        "run_state": "",        # "RUN" | "S&P" from N1MM (contest run vs search-and-pounce)
     },
     "decodes": [],              # recent WSJT-X decodes (newest first)
     "signal": {"snr": None, "s_meter": "—", "s_pct": 0},
@@ -1268,7 +1269,8 @@ def _rigctld_loop():
                             rd["mode"] = mode
                         # WSJT-X drives freq/tx when it's actively feeding us;
                         # otherwise rigctld does. Meters flow either way.
-                        if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
+                        if rd["source"] not in ("WSJT-X", "N1MM") \
+                                or time.time() - rd["last_seen"] > 10:
                             rd.update({
                                 "online": True, "source": "rigctld",
                                 "dial_hz": hz, "rx_hz": hz,
@@ -2129,7 +2131,7 @@ def _hrd_loop():
                         # feeding — so the panel stays live on voice with WSJT-X
                         # closed. TX/mic-PTT isn't exposed, so assume RECEIVE.
                         if (not _rigctld_online
-                                and (rd["source"] != "WSJT-X"
+                                and (rd["source"] not in ("WSJT-X", "N1MM")
                                      or time.time() - rd["last_seen"] > 10)):
                             rd.update({
                                 "online": True, "source": "HRD",
@@ -2234,7 +2236,8 @@ def _flrig_loop():
                         rd["power_w"] = round(pset)
                     if mode:
                         rd["mode"] = mode
-                    if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
+                    if rd["source"] not in ("WSJT-X", "N1MM") \
+                            or time.time() - rd["last_seen"] > 10:
                         rd.update({
                             "online": True, "source": "Flrig",
                             "dial_hz": hz, "rx_hz": hz,
@@ -2254,6 +2257,100 @@ def _flrig_loop():
                 STATE["radio"]["cat_online"] = False
             print(f"[flrig] link error ({e}) — retry in 8s")
             time.sleep(8)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  N1MM Logger+ CAT source — read the dial from N1MM's UDP broadcast
+# ══════════════════════════════════════════════════════════════════════════════
+# During a contest, N1MM Logger+ owns the radio's single CAT port — so Flrig can't
+# read it. N1MM instead broadcasts its live radio state as <RadioInfo> XML over UDP
+# (N1MM: Config → Configure Ports/Mode Control → "Broadcast Data", default target
+# 127.0.0.1:12060). This listener parses those packets so the dashboard tracks the
+# dial through a contest run without touching the CAT port at all.
+#
+# Priority: N1MM outranks Flrig/rigctld/HRD (it's the authoritative source while it
+# holds the port, and those pollers are dark anyway), and defers to WSJT-X when
+# WSJT-X is actively feeding (digital days — N1MM usually isn't even open then).
+# Fail-soft: if N1MM isn't broadcasting, the socket just sits idle.
+#
+# Wire formats: <Freq>/<TXFreq> are in TENS OF Hz (1407400 → 14 074 000 Hz =
+# 14.074 MHz). <IsTransmitting> gives live PTT; <IsRunning> is Run vs S&P. N1MM
+# also broadcasts contactinfo/score/spot/lookup packets on the same port — we only
+# act on <RadioInfo> and ignore the rest.
+
+def _n1mm_freq_hz(text):
+    """N1MM <Freq>/<TXFreq> is in tens of Hz — convert to Hz."""
+    try:
+        return int(str(text).strip()) * 10
+    except (TypeError, ValueError):
+        return 0
+
+
+def _n1mm_tag(text, tag):
+    """Pull a single <tag>…</tag> value out of an N1MM XML packet."""
+    m = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.I | re.S)
+    return m.group(1).strip() if m else ""
+
+
+def _handle_n1mm_radioinfo(text):
+    hz = _n1mm_freq_hz(_n1mm_tag(text, "Freq")) \
+        or _n1mm_freq_hz(_n1mm_tag(text, "TXFreq"))
+    if not hz:
+        return
+    mode = _n1mm_tag(text, "Mode").upper()
+    tx = _n1mm_tag(text, "IsTransmitting").lower() in ("true", "1")
+    running = _n1mm_tag(text, "IsRunning").lower() in ("true", "1")
+    with _lock:
+        rd = STATE["radio"]
+        # Own the card unless WSJT-X is actively the source (N1MM outranks the
+        # CAT pollers, which are dark while N1MM holds the port anyway).
+        if rd["source"] != "WSJT-X" or time.time() - rd["last_seen"] > 10:
+            rd.update({
+                "online": True, "source": "N1MM",
+                "dial_hz": hz, "rx_hz": hz,
+                "freq_mhz": round(hz / 1e6, 6),
+                "band": freq_to_band(hz),
+                "tx": tx, "last_seen": time.time(),
+                "cat_online": True,
+            })
+            if mode:
+                rd["mode"] = mode
+            # Run vs Search-and-Pounce, for the LIVE RUN contest panel.
+            rd["run_state"] = "RUN" if running else "S&P"
+
+
+def _n1mm_loop():
+    port = int(cfg("n1mm_port", 12060))
+    bind = cfg("n1mm_bind", "0.0.0.0")
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    except OSError:
+        pass
+    while True:
+        try:
+            sock.bind((bind, port))
+            break
+        except OSError as e:
+            print(f"[n1mm] can't bind UDP {bind}:{port} ({e}) — retry in 8s")
+            time.sleep(8)
+    sock.settimeout(5.0)
+    print(f"[n1mm] listening on UDP {bind}:{port} for N1MM RadioInfo broadcasts")
+    while True:
+        try:
+            data, _addr = sock.recvfrom(65535)
+        except socket.timeout:
+            continue
+        except OSError:
+            time.sleep(2)
+            continue
+        text = data.decode("utf-8", "replace")
+        if "<RadioInfo" not in text:
+            continue          # ignore contactinfo/score/spot/lookup packets
+        try:
+            _handle_n1mm_radioinfo(text)
+        except Exception as e:
+            print(f"[n1mm] parse error ({e})")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2363,7 +2460,7 @@ def _commander_bridge_loop():
 def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
                  enable_pollers=True, enable_ingest_watchdog=False, enable_qrz=None,
                  enable_hrd=None, enable_flrig=None, enable_commander_bridge=None,
-                 enable_radio_watchdog=None):
+                 enable_radio_watchdog=None, enable_n1mm=None):
     STATE["engine_started"] = time.time()
     if enable_radio_watchdog is None:
         # On by default wherever real rig sources run (agent/local); the cloud
@@ -2382,6 +2479,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         enable_flrig = cfg("flrig_enabled", False)
     if enable_commander_bridge is None:
         enable_commander_bridge = cfg("commander_bridge_enabled", False)
+    if enable_n1mm is None:
+        enable_n1mm = cfg("n1mm_enabled", True)
 
     threads = []
     if enable_wsjtx:
@@ -2392,6 +2491,8 @@ def start_engine(enable_wsjtx=None, enable_adif=True, enable_rigctld=None,
         threads.append(("hrd", _hrd_loop))
     if enable_flrig:
         threads.append(("flrig", _flrig_loop))
+    if enable_n1mm:
+        threads.append(("n1mm", _n1mm_loop))
     if enable_commander_bridge:
         threads.append(("commander", _commander_bridge_loop))
     if enable_adif:
