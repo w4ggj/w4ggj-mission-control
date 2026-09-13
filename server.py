@@ -82,6 +82,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(engine.snapshot()),
                        "application/json; charset=utf-8")
             return
+        if path == "/api/band-activity":
+            self._send(200, json.dumps(engine.band_activity()),
+                       "application/json; charset=utf-8")
+            return
         if path == "/api/settings":
             self._send(200, json.dumps(engine.get_settings()),
                        "application/json; charset=utf-8")
