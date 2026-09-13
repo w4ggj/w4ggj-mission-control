@@ -1169,13 +1169,8 @@ def _handle_wsjtx(data):
                     label, pct = _snr_to_smeter(best)
                     STATE["signal"]["s_meter"] = label
                     STATE["signal"]["s_pct"] = pct
-                if not _flrig_online:
-                    label, pct = _snr_to_smeter(best)
-                    STATE["signal"]["s_meter"] = label
-                    STATE["signal"]["s_pct"] = pct
             _record_band_activity(STATE["radio"]["band"], snr, message)
 
-        elif mtype == 5:        # QSO Logged
         elif mtype == 5:        # QSO Logged
             _skip_qdatetime(r)          # Date/Time OFF
             dx_call = (r.string() or "").upper()
