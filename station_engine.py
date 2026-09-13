@@ -357,6 +357,54 @@ def set_spectrum(frame):
 def get_spectrum():
     return _spectrum or {}
 
+_BAND_WINDOW_SEC = 900
+_BAND_HISTORY_MAX_AGE_SEC = 4 * 86400
+_band_lock = threading.Lock()
+_band_windows = {}
+_GRID_RE = re.compile(r"\b([A-R]{2}[0-9]{2}(?:[A-X]{2})?)\b")
+
+
+def _record_band_activity(band, snr, message):
+    if not band or band == "—":
+        return
+    now = time.time()
+    window_start = int(now // _BAND_WINDOW_SEC) * _BAND_WINDOW_SEC
+    key = (band, window_start)
+    grid_match = _GRID_RE.search((message or "").upper())
+    with _band_lock:
+        w = _band_windows.get(key)
+        if w is None:
+            w = {"count": 0, "calls": set(), "best_snr": None, "grids": set()}
+            _band_windows[key] = w
+        w["count"] += 1
+        if snr is not None and (w["best_snr"] is None or snr > w["best_snr"]):
+            w["best_snr"] = snr
+        parts = (message or "").split()
+        if parts:
+            w["calls"].add(parts[1] if parts[0] == "CQ" and len(parts) > 1 else parts[0])
+        if grid_match:
+            w["grids"].add(grid_match.group(1))
+        cutoff = now - _BAND_HISTORY_MAX_AGE_SEC
+        for k in [k for k in _band_windows if k[1] < cutoff]:
+            del _band_windows[k]
+
+
+def band_activity():
+    with _band_lock:
+        rows = []
+        for (band, window_start), w in _band_windows.items():
+            rows.append({
+                "band": band,
+                "window_start": datetime.fromtimestamp(window_start, timezone.utc)
+                                          .strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "window_minutes": _BAND_WINDOW_SEC // 60,
+                "decode_count": w["count"],
+                "unique_calls": len(w["calls"]),
+                "best_snr": w["best_snr"],
+                "grids": sorted(w["grids"]),
+            })
+    rows.sort(key=lambda r: (r["window_start"], r["band"]))
+    return {"updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "rows": rows}
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Visitor analytics  (who's been on the PUBLIC page, and where from)
@@ -1121,7 +1169,13 @@ def _handle_wsjtx(data):
                     label, pct = _snr_to_smeter(best)
                     STATE["signal"]["s_meter"] = label
                     STATE["signal"]["s_pct"] = pct
+                if not _flrig_online:
+                    label, pct = _snr_to_smeter(best)
+                    STATE["signal"]["s_meter"] = label
+                    STATE["signal"]["s_pct"] = pct
+            _record_band_activity(STATE["radio"]["band"], snr, message)
 
+        elif mtype == 5:        # QSO Logged
         elif mtype == 5:        # QSO Logged
             _skip_qdatetime(r)          # Date/Time OFF
             dx_call = (r.string() or "").upper()
