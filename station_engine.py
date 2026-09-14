@@ -219,6 +219,7 @@ STATE = {
         "run_state": "",        # "RUN" | "S&P" from N1MM (contest run vs search-and-pounce)
     },
     "decodes": [],              # recent WSJT-X decodes (newest first)
+     "band_activity": {"updated": "", "rows": []},  # 15-min decode buckets by band; see band_activity()
     "signal": {"snr": None, "s_meter": "—", "s_pct": 0},
     # logbook
     "log": {
@@ -387,9 +388,14 @@ def _record_band_activity(band, snr, message):
         cutoff = now - _BAND_HISTORY_MAX_AGE_SEC
         for k in [k for k in _band_windows if k[1] < cutoff]:
             del _band_windows[k]
+        _record_band_activity_flush()
+
+def _record_band_activity_flush():
+    with _lock:
+        STATE["band_activity"] = _compute_band_activity()
 
 
-def band_activity():
+def _compute_band_activity():
     with _band_lock:
         rows = []
         for (band, window_start), w in _band_windows.items():
@@ -405,6 +411,17 @@ def band_activity():
             })
     rows.sort(key=lambda r: (r["window_start"], r["band"]))
     return {"updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "rows": rows}
+
+
+def band_activity():
+    local = _compute_band_activity()
+    if local["rows"]:
+        return local
+    with _lock:
+        cached = STATE.get("band_activity")
+    if cached and cached.get("rows"):
+        return cached
+    return local
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  Visitor analytics  (who's been on the PUBLIC page, and where from)
@@ -2007,7 +2024,8 @@ def _dx_loop():
 # via POST /api/ingest instead of local UDP/ADIF.
 _last_ingest = 0
 INGEST_SECTIONS = ("radio", "decodes", "signal", "log", "map", "awards",
-                   "activity", "records", "contest", "settings", "field")
+                   "activity", "records", "contest", "settings", "field",
+                   "band_activity")
 
 
 def ingest(sections):
