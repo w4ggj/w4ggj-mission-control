@@ -388,7 +388,7 @@ def _record_band_activity(band, snr, message):
         cutoff = now - _BAND_HISTORY_MAX_AGE_SEC
         for k in [k for k in _band_windows if k[1] < cutoff]:
             del _band_windows[k]
-        _record_band_activity_flush()
+    _record_band_activity_flush()
 
 def _record_band_activity_flush():
     with _lock:
