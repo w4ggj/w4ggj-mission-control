@@ -47,9 +47,18 @@ HOME_TARGETS = [
     #   You can also add LOCAL apps on this laptop to feed them too, e.g.:
     # ("127.0.0.1", 2237),              # a second local logger, etc.
 ]
+
+# BANDWIDTH SAVER. WSJT-X's DECODE packets are the firehose — dozens per 15s
+# cycle on a busy band — and they're what eats a POTA hotspot's data. For an
+# activation you mainly need your CONTACTS in the home log plus live freq/mode,
+# not every decode on the band. Leave this False to drop the decode stream
+# (freq, mode, portable mode, and every logged QSO still go home). Set it True
+# only if you want the full live decode list on the home dashboard from the field.
+FORWARD_DECODES = False
 # ──────────────────────────────────────────────────────────────────────────────
 
 WSJTX_MAGIC = 0xADBCCBDA
+TYPE_DECODE = 2
 TYPE_QSO_LOGGED = 5
 
 
@@ -74,16 +83,26 @@ def main():
     print(f"  Point GridTracker's Forward UDP (or WSJT-X) at  127.0.0.1:{LISTEN_PORT}")
     for host, port in HOME_TARGETS:
         print(f"  -> home target: {host}:{port}")
+    mode = "FULL (all packets)" if FORWARD_DECODES else "LOW-BANDWIDTH (decodes dropped)"
+    print(f"  mode: {mode}")
     print("  (leave this window running)")
     print("=" * 62)
 
-    count = 0
+    count = dropped = 0
     while True:
         try:
             data, _ = rx.recvfrom(65535)
         except OSError as e:
             print(f"[cloner] recv error ({e}) — retry in 2s")
             time.sleep(2)
+            continue
+
+        mtype = wsjtx_msg_type(data)
+
+        # Bandwidth saver: drop the high-volume decode stream. Everything else
+        # (status/freq, heartbeat, and the logged-QSO packets) still forwards.
+        if not FORWARD_DECODES and mtype == TYPE_DECODE:
+            dropped += 1
             continue
 
         for host, port in HOME_TARGETS:
@@ -95,10 +114,11 @@ def main():
                 print(f"[cloner] send to {host}:{port} failed ({e})")
 
         count += 1
-        if wsjtx_msg_type(data) == TYPE_QSO_LOGGED:
+        if mtype == TYPE_QSO_LOGGED:
             print("[cloner] >>> QSO logged -> forwarded to home <<<")
         if count % 100 == 0:
-            print(f"[cloner] {count} packets forwarded")
+            print(f"[cloner] {count} packets forwarded"
+                  + (f" ({dropped} decodes dropped)" if dropped else ""))
 
 
 if __name__ == "__main__":
