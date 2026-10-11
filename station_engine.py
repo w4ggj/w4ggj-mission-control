@@ -2312,6 +2312,9 @@ def _flrig_loop():
                             "freq_mhz": round(hz / 1e6, 6),
                             "band": freq_to_band(hz),
                             "tx": tx, "last_seen": time.time(),
+                            # Flrig owns the card (WSJT-X isn't active) — drop any
+                            # stale FT8/FT4 submode so RTTY/digital doesn't read "FT8".
+                            "digital_mode": "",
                         })
                     # Real hardware S-meter drives the needle on RX (voice AND
                     # digital). On TX the meter reads 0, so hold the last value.
@@ -2384,6 +2387,10 @@ def _handle_n1mm_radioinfo(text):
             })
             if mode:
                 rd["mode"] = mode
+            # N1MM isn't WSJT-X, so there's no FT8/FT4 submode — clear any stale
+            # one left over from a previous WSJT-X session (otherwise RTTY/digital
+            # ops keep showing "FT8" on the card).
+            rd["digital_mode"] = ""
             # Run vs Search-and-Pounce, for the LIVE RUN contest panel.
             rd["run_state"] = "RUN" if running else "S&P"
         # Expire the "working" call a couple of minutes after the last QSO/lookup,
